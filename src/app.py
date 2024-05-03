@@ -57,27 +57,19 @@ from langchain_community.tools import HumanInputRun
 
 def get_response(user_query, chat_history, user_story, business_ctx):
   
-    llm = ChatOpenAI(temperature=0.0, model="gpt-4-turbo-preview")
-    tools = load_tools(["human"])
-
-    agent_chain = initialize_agent(
-        tools,
-        llm,
-        agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-        verbose=True,
-    )
+    llm = ChatOpenAI(temperature=0.0, model="gpt-4-turbo-preview", model_kwargs={"stop": "\nAnswer"})
+    output_parser = StrOutputParser()
     prompt = ChatPromptTemplate.from_template(user_story_template)
-    prompt_value = prompt.invoke(
+    chain = prompt | llm | output_parser
+
+    return chain.stream(
         {
-            "history": chat_history,
             "input": user_query,
+            "history": chat_history,
             "story": user_story,
             "context": business_ctx,
         }
     )
-    return agent_chain.invoke(prompt_value)
-
-left_column, right_column = st.columns(2)
 
 # Initialize chat history
 if "chat_history" not in st.session_state:
@@ -95,49 +87,49 @@ if "chat_history" not in st.session_state:
 else:
     border = True
 
-# with right_column:
-user_story = st.text_area(
-    "User Story",
-    """作为学校的教职员工（As a faculty），
-    我希望学生可以根据录取通知将学籍注册到教学计划上（I want the student to be able to enroll in an academic program with given offer），
-    从而我可以跟踪他们的获取学位的进度（So that I can track their progress）""",
-    height= 300,
-)
+left_column, right_column = st.columns(2)
+with right_column:
+    user_story = st.text_area(
+        "User Story",
+        """作为学校的教职员工（As a faculty），
+        我希望学生可以根据录取通知将学籍注册到教学计划上（I want the student to be able to enroll in an academic program with given offer），
+        从而我可以跟踪他们的获取学位的进度（So that I can track their progress）""",
+        height= 300,
+    )
 
-business_ctx = st.text_area(
-    "Business Context",
-    "整个学籍管理系统是一个 Web 应用； 当教职员工发放录取通知时，会同步建立学生的账号；学生可以根据身份信息，查询自己的账号；在报道注册时，学生登录账号，按照录取通知书完成学年的注册；",
-    height= 300,
-)
+    business_ctx = st.text_area(
+        "Business Context",
+        "整个学籍管理系统是一个 Web 应用； 当教职员工发放录取通知时，会同步建立学生的账号；学生可以根据身份信息，查询自己的账号；在报道注册时，学生登录账号，按照录取通知书完成学年的注册；",
+        height= 300,
+    )
 
-# with left_column:    
-with st.container(border=border, height=800):
-    # conversation
-    for message in st.session_state.chat_history:
-        if isinstance(message, AIMessage):
-            with st.chat_message("AI"):
-                st.write(message.content)
-        elif isinstance(message, HumanMessage):
+with left_column:    
+    with st.container(border=border, height=800):
+        # conversation
+        for message in st.session_state.chat_history:
+            if isinstance(message, AIMessage):
+                with st.chat_message("AI"):
+                    st.write(message.content)
+            elif isinstance(message, HumanMessage):
+                with st.chat_message("Human"):
+                    st.write(message.content)
+
+        # user input
+        user_query = ''
+        with st.container():
+            user_query = st.chat_input("What is up?")
+            button_b_pos = "0rem"
+            button_css = float_css_helper(width="2.2rem", bottom=button_b_pos, transition=0)
+            float_parent(css=button_css)
+
+        if user_query is not None and user_query != "":
+            st.session_state.chat_history.append(HumanMessage(content=user_query))
+
             with st.chat_message("Human"):
-                st.write(message.content)
+                st.markdown(user_query)
 
-    # user input
-    user_query = ''
-    with st.container():
-        user_query = st.chat_input("What is up?")
-        button_b_pos = "0rem"
-        button_css = float_css_helper(width="2.2rem", bottom=button_b_pos, transition=0)
-        float_parent(css=button_css)
+            with st.chat_message("AI"):
+                # response = st.write_stream(get_response(user_query, st.session_state.chat_history, right_column.user_story, right_column.business_ctx))
+                response = st.write_stream(get_response(user_query, st.session_state.chat_history, user_story, business_ctx))
 
-    if user_query is not None and user_query != "":
-        st.session_state.chat_history.append(HumanMessage(content=user_query))
-
-        with st.chat_message("Human"):
-            st.markdown(user_query)
-
-        with st.chat_message("AI"):
-            response = st.write_stream(get_response(user_query, st.session_state.chat_history, user_story, business_ctx))
-
-        st.session_state.chat_history.append(AIMessage(content=response))
-
-
+            st.session_state.chat_history.append(AIMessage(content=response))

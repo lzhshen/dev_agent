@@ -4,14 +4,10 @@ from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-
 from streamlit_float import *
-
 from langchain.agents import create_tool_calling_agent
-from langchain.agents import AgentExecutor
-from langchain_community.chat_message_histories import ChatMessageHistory
-from langchain_core.runnables.history import RunnableWithMessageHistory
-from langchain.agents import AgentType, initialize_agent, load_tools
+from langchain.agents import initialize_agent, load_tools
+from utils import *
 
 user_story_template = """
 You are a business analyst who is familiar with specification by example. I’m the domain expert.
@@ -41,6 +37,8 @@ Thought: I know enough to explain the user story
 Scenarios: List all possible scenarios with concrete example in Given/When/Then style
 // 场景：列出所有场景。使用 Given/When/Then 的格式表述
 
+对于每个步骤（Thought/Question/Answer/Scenarios）请换行输出其内容
+
 {history}
 {input}
 请使用中文
@@ -53,16 +51,19 @@ st.title("Streaming bot")
 float_init(theme=True, include_unstable_primary=False)
 
 load_dotenv()
-from langchain_community.tools import HumanInputRun
 
-def get_response(user_query, chat_history, user_story, business_ctx):
+def get_response(user_query, chat_history, user_story, business_ctx, is_interactive = True):
   
-    llm = ChatOpenAI(temperature=0.0, model="gpt-4-turbo-preview", model_kwargs={"stop": "\nAnswer"})
-    output_parser = StrOutputParser()
+    if is_interactive:
+        llm = ChatOpenAI(temperature=0.0, model="gpt-4-turbo-preview", model_kwargs={"stop": "\nAnswer"})
+    else:
+        llm = ChatOpenAI(temperature=0.0, model="gpt-4-turbo-preview")
+    # output_parser = StrOutputParser()
+    output_parser = MyStrOutputParser()
     prompt = ChatPromptTemplate.from_template(user_story_template)
     chain = prompt | llm | output_parser
 
-    return chain.stream(
+    stream = chain.stream(
         {
             "input": user_query,
             "history": chat_history,
@@ -70,6 +71,7 @@ def get_response(user_query, chat_history, user_story, business_ctx):
             "context": business_ctx,
         }
     )
+    return stream
 
 # Initialize chat history
 if "chat_history" not in st.session_state:
@@ -115,6 +117,7 @@ with left_column:
                     st.write(message.content)
 
         # user input
+        is_interactive = st.checkbox("交互对话模式", value=True)
         user_query = ''
         with st.container():
             user_query = st.chat_input("What is up?")
@@ -130,6 +133,6 @@ with left_column:
 
             with st.chat_message("AI"):
                 # response = st.write_stream(get_response(user_query, st.session_state.chat_history, right_column.user_story, right_column.business_ctx))
-                response = st.write_stream(get_response(user_query, st.session_state.chat_history, user_story, business_ctx))
+                response = st.write_stream(get_response(user_query, st.session_state.chat_history, user_story, business_ctx, is_interactive))
 
             st.session_state.chat_history.append(AIMessage(content=response))

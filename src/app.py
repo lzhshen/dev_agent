@@ -44,6 +44,9 @@ Scenarios: List all possible scenarios with concrete example in Given/When/Then 
 请使用中文
 """
 
+# 新增用户故事-特殊ID
+NEW_USER_STORY_ID = -1
+
 # app config
 st.set_page_config(page_title="Streaming bot", page_icon="🤖", layout="wide")
 st.title("Streaming bot")
@@ -89,14 +92,95 @@ if "chat_history" not in st.session_state:
 else:
     border = True
 
+# Initialize database
+conn = st.connection('database', type='sql')
+with conn.session as conn_session:
+    conn_session.execute("""CREATE TABLE IF NOT EXISTS user_story_list (
+    user_story_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_story_content TEXT);
+    """)
+    user_story_df = conn.query("SELECT * FROM user_story_list", ttl=1)
+    if user_story_df.empty:
+        conn_session.execute(
+            "INSERT INTO user_story_list (user_story_content) VALUES (:user_story_content);",
+            params={
+                "user_story_content": """作为学校的教职员工（As a faculty），
+我希望学生可以根据录取通知将学籍注册到教学计划上（I want the student to be able to enroll in an academic program with given offer），
+从而我可以跟踪他们的获取学位的进度（So that I can track their progress）"""
+                }
+        )
+    conn_session.commit()
+
+
+user_story_df = conn.query("SELECT user_story_id, user_story_content FROM user_story_list", ttl=1)
+user_story_list = user_story_df.to_dict(orient='records')
+user_story_selectbox_options = list(user_story_df["user_story_id"])
+user_story_selectbox_options.insert(0, NEW_USER_STORY_ID)
+if "user_story_id" in st.session_state and st.session_state.user_story_id in user_story_selectbox_options:
+    user_story_selectbox_index = user_story_selectbox_options.index(st.session_state.user_story_id)
+else:
+    user_story_selectbox_index = len(user_story_selectbox_options) - 1
+
+
+def format_user_story_selectbox(user_story_id):
+    if user_story_id == NEW_USER_STORY_ID:
+        return "新增用户故事"
+    else:
+        for user_story_info in user_story_list:
+            if user_story_info["user_story_id"] == user_story_id:
+                return user_story_info["user_story_content"]
+    return f"用户故事已被删除，ID={user_story_id}"
+
+
+def format_user_story_text_area(user_story_id):
+    if user_story_id == NEW_USER_STORY_ID:
+        return ""
+    else:
+        for user_story_info in user_story_list:
+            if user_story_info["user_story_id"] == user_story_id:
+                return user_story_info["user_story_content"]
+    return f"用户故事已被删除，ID={user_story_id}"
+
+
+def on_change_user_story_content():
+    user_story_id = st.session_state.user_story_id
+    user_story_content = st.session_state.user_story_content
+    if user_story_id == NEW_USER_STORY_ID:
+        sql = "INSERT INTO user_story_list (user_story_content) VALUES (:user_story_content);"
+        params = {
+            "user_story_content": user_story_content,
+        }
+        del st.session_state["user_story_id"]
+    else:
+        sql = "UPDATE user_story_list SET user_story_content=:user_story_content WHERE user_story_id=:user_story_id;"
+        params = {
+            "user_story_content": user_story_content,
+            "user_story_id": user_story_id,
+        }
+    with conn.session as conn_session:
+        conn_session.execute(
+            statement=sql,
+            params=params,
+        )
+        conn_session.commit()
+
+
 left_column, right_column = st.columns(2)
 with right_column:
+    user_story_selectbox_index = st.selectbox(
+      "User Story List",
+      options=user_story_selectbox_options,
+      key="user_story_id",
+      format_func=format_user_story_selectbox,
+      index=user_story_selectbox_index,
+    )
+    
     user_story = st.text_area(
         "User Story",
-        """作为学校的教职员工（As a faculty），
-        我希望学生可以根据录取通知将学籍注册到教学计划上（I want the student to be able to enroll in an academic program with given offer），
-        从而我可以跟踪他们的获取学位的进度（So that I can track their progress）""",
+        format_user_story_text_area(user_story_selectbox_index),
+        key="user_story_content",
         height= 300,
+        on_change=on_change_user_story_content
     )
 
     business_ctx = st.text_area(

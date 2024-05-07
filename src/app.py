@@ -7,6 +7,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from streamlit_float import *
 from langchain.agents import create_tool_calling_agent
 from langchain.agents import initialize_agent, load_tools
+from sqlalchemy import text
 from utils import *
 
 user_story_template = """
@@ -95,14 +96,14 @@ else:
 # Initialize database
 conn = st.connection('database', type='sql')
 with conn.session as conn_session:
-    conn_session.execute("""CREATE TABLE IF NOT EXISTS user_story_list (
+    conn_session.execute(text("""CREATE TABLE IF NOT EXISTS user_story_list (
     user_story_id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_story_content TEXT);
-    """)
+    """))
     user_story_df = conn.query("SELECT * FROM user_story_list", ttl=1)
     if user_story_df.empty:
         conn_session.execute(
-            "INSERT INTO user_story_list (user_story_content) VALUES (:user_story_content);",
+            text("INSERT INTO user_story_list (user_story_content) VALUES (:user_story_content);"),
             params={
                 "user_story_content": """作为学校的教职员工（As a faculty），
 我希望学生可以根据录取通知将学籍注册到教学计划上（I want the student to be able to enroll in an academic program with given offer），
@@ -159,7 +160,7 @@ def on_change_user_story_content():
         }
     with conn.session as conn_session:
         conn_session.execute(
-            statement=sql,
+            statement=text(sql),
             params=params,
         )
         conn_session.commit()
@@ -174,7 +175,7 @@ with right_column:
       format_func=format_user_story_selectbox,
       index=user_story_selectbox_index,
     )
-    
+
     user_story = st.text_area(
         "User Story",
         format_user_story_text_area(user_story_selectbox_index),

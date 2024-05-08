@@ -8,6 +8,7 @@ from streamlit_float import *
 from langchain.agents import create_tool_calling_agent
 from langchain.agents import initialize_agent, load_tools
 from sqlalchemy import text
+import database
 from utils import *
 
 user_story_template = """
@@ -56,6 +57,13 @@ float_init(theme=True, include_unstable_primary=False)
 
 load_dotenv()
 
+
+@st.cache_resource(ttl=3600, show_spinner=False)
+def get_database_session():
+    database_config = st.secrets["database"]
+    return database.get_database_session(database_config)
+
+
 def get_response(user_query, chat_history, user_story, business_ctx, is_interactive = True):
   
     if is_interactive:
@@ -93,29 +101,14 @@ if "chat_history" not in st.session_state:
 else:
     border = True
 
-# Initialize database
-conn = st.connection('database', type='sql')
-with conn.session as conn_session:
-    conn_session.execute(text("""CREATE TABLE IF NOT EXISTS user_story_list (
-    user_story_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_story_content TEXT);
-    """))
-    user_story_df = conn.query("SELECT * FROM user_story_list", ttl=1)
-    if user_story_df.empty:
-        conn_session.execute(
-            text("INSERT INTO user_story_list (user_story_content) VALUES (:user_story_content);"),
-            params={
-                "user_story_content": """作为学校的教职员工（As a faculty），
-我希望学生可以根据录取通知将学籍注册到教学计划上（I want the student to be able to enroll in an academic program with given offer），
-从而我可以跟踪他们的获取学位的进度（So that I can track their progress）"""
-                }
-        )
-    conn_session.commit()
 
+if 'dbsession' not in st.session_state:
+    st.session_state.dbsession = get_database_session()
+    database.test()
 
-user_story_df = conn.query("SELECT user_story_id, user_story_content FROM user_story_list", ttl=1)
-user_story_list = user_story_df.to_dict(orient='records')
-user_story_selectbox_options = list(user_story_df["user_story_id"])
+user_story_list = database.get_all_user_stories(st.session_state.dbsession)
+print(user_story_list)
+user_story_selectbox_options = [user_story_model.id for user_story_model in user_story_list]
 user_story_selectbox_options.insert(0, NEW_USER_STORY_ID)
 if "user_story_id" in st.session_state and st.session_state.user_story_id in user_story_selectbox_options:
     user_story_selectbox_index = user_story_selectbox_options.index(st.session_state.user_story_id)
@@ -127,9 +120,9 @@ def format_user_story_selectbox(user_story_id):
     if user_story_id == NEW_USER_STORY_ID:
         return "新增用户故事"
     else:
-        for user_story_info in user_story_list:
-            if user_story_info["user_story_id"] == user_story_id:
-                return user_story_info["user_story_content"]
+        for user_story_model in user_story_list:
+            if user_story_model.id == user_story_id:
+                return user_story_model.title
     return f"用户故事已被删除，ID={user_story_id}"
 
 
@@ -137,9 +130,9 @@ def format_user_story_text_area(user_story_id):
     if user_story_id == NEW_USER_STORY_ID:
         return ""
     else:
-        for user_story_info in user_story_list:
-            if user_story_info["user_story_id"] == user_story_id:
-                return user_story_info["user_story_content"]
+        for user_story_model in user_story_list:
+            if user_story_model.id == user_story_id:
+                return user_story_model.content
     return f"用户故事已被删除，ID={user_story_id}"
 
 
@@ -221,3 +214,4 @@ with left_column:
                 response = st.write_stream(get_response(user_query, st.session_state.chat_history, user_story, business_ctx, is_interactive))
 
             st.session_state.chat_history.append(AIMessage(content=response))
+

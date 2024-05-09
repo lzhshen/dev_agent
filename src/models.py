@@ -22,21 +22,21 @@ class BaseModel(DeclarativeBase):
     status: Mapped[int] = mapped_column(Integer, nullable=False, default=STATUS_ALIVE)
 
 
-class BusinessContextModel(BaseModel):
-    __tablename__ = "business_context"
-    title: Mapped[str] = mapped_column(Text, nullable=False)
-    content: Mapped[Optional[str]] = mapped_column(Text)
+class BusinessCtxModel(BaseModel):
+    __tablename__ = "business_ctx"
+    title: Mapped[str] = mapped_column(Text, nullable=False, default="title")
+    content: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default="")
 
 
 class UserStoryModel(BaseModel):
     __tablename__ = "user_story"
-    business_context_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
-    title: Mapped[str] = mapped_column(Text, nullable=False)
-    content: Mapped[Optional[str]] = mapped_column(Text)
+    business_ctx_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False, default="title")
+    content: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default="")
 
 
 class AcceptanceCriteriaModel(BaseModel):
     __tablename__ = "acceptance_criteria"
     user_story_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
-    title: Mapped[str] = mapped_column(Text, nullable=False)
-    content: Mapped[Optional[str]] = mapped_column(Text)
+    title: Mapped[str] = mapped_column(Text, nullable=False, default="title")
+    content: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default="")

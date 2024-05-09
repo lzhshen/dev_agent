@@ -9,6 +9,7 @@ from langchain.agents import create_tool_calling_agent
 from langchain.agents import initialize_agent, load_tools
 from sqlalchemy import text
 import database
+import models
 from utils import *
 
 user_story_template = """
@@ -45,10 +46,6 @@ Scenarios: List all possible scenarios with concrete example in Given/When/Then 
 {input}
 请使用中文
 """
-
-# 新增用户故事-特殊ID
-NEW_USER_STORY_ID = -1
-
 # app config
 st.set_page_config(page_title="Streaming bot", page_icon="🤖", layout="wide")
 st.title("Streaming bot")
@@ -62,6 +59,10 @@ load_dotenv()
 def get_database_session():
     database_config = st.secrets["database"]
     return database.get_database_session(database_config)
+
+
+if 'dbsession' not in st.session_state:
+    st.session_state.dbsession = get_database_session()
 
 
 def get_response(user_query, chat_history, user_story, business_ctx, is_interactive = True):
@@ -85,6 +86,7 @@ def get_response(user_query, chat_history, user_story, business_ctx, is_interact
     )
     return stream
 
+
 # Initialize chat history
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
@@ -102,85 +104,237 @@ else:
     border = True
 
 
-if 'dbsession' not in st.session_state:
-    st.session_state.dbsession = get_database_session()
-    database.test()
-
-user_story_list = database.get_all_user_stories(st.session_state.dbsession)
-print(user_story_list)
+user_story_list: [models.UserStoryModel] = st.session_state.dbsession.query(
+    models.UserStoryModel,
+).filter(
+    models.UserStoryModel.status == models.STATUS_ALIVE,
+).order_by(
+    models.UserStoryModel.created.desc()
+).all()
 user_story_selectbox_options = [user_story_model.id for user_story_model in user_story_list]
-user_story_selectbox_options.insert(0, NEW_USER_STORY_ID)
 if "user_story_id" in st.session_state and st.session_state.user_story_id in user_story_selectbox_options:
     user_story_selectbox_index = user_story_selectbox_options.index(st.session_state.user_story_id)
 else:
-    user_story_selectbox_index = len(user_story_selectbox_options) - 1
+    user_story_selectbox_index = 0
+
+business_ctx_list: [models.BusinessCtxModel] = st.session_state.dbsession.query(
+    models.BusinessCtxModel
+).filter(
+    models.BusinessCtxModel.status == models.STATUS_ALIVE,
+).order_by(
+    models.BusinessCtxModel.created.desc()
+).all()
+business_ctx_selectbox_options = [business_ctx_model.id for business_ctx_model in business_ctx_list]
+if "business_ctx_id" in st.session_state and st.session_state.business_ctx_id in business_ctx_selectbox_options:
+    business_ctx_selectbox_index = business_ctx_selectbox_options.index(st.session_state.business_ctx_id)
+    business_ctx_selectbox_id = st.session_state.business_ctx_id
+elif business_ctx_selectbox_options:
+    business_ctx_selectbox_index = 0
+    business_ctx_selectbox_id = business_ctx_selectbox_options[business_ctx_selectbox_index]
+    st.session_state.business_ctx_id = business_ctx_selectbox_id
+else:
+    business_ctx_selectbox_index = 0
 
 
 def format_user_story_selectbox(user_story_id):
-    if user_story_id == NEW_USER_STORY_ID:
-        return "新增用户故事"
+    user_story_model: models.UserStoryModel = st.session_state.dbsession.get(
+        models.UserStoryModel,
+        user_story_id,
+    )
+    if user_story_model:
+        user_story_title = user_story_model.title
     else:
-        for user_story_model in user_story_list:
-            if user_story_model.id == user_story_id:
-                return user_story_model.title
-    return f"用户故事已被删除，ID={user_story_id}"
+        user_story_title = f"用户故事已被删除，ID={user_story_model}"
+    return user_story_title
 
 
 def format_user_story_text_area(user_story_id):
-    if user_story_id == NEW_USER_STORY_ID:
+    if user_story_id is None:
         return ""
+    user_story_model: models.UserStoryModel = st.session_state.dbsession.get(
+        models.UserStoryModel,
+        user_story_id,
+    )
+    if user_story_model:
+        user_story_content = user_story_model.content
     else:
-        for user_story_model in user_story_list:
-            if user_story_model.id == user_story_id:
-                return user_story_model.content
-    return f"用户故事已被删除，ID={user_story_id}"
+        user_story_content = f"用户故事已被删除，ID={user_story_model}"
+    return user_story_content
+
+
+def format_business_ctx_selectbox(business_ctx_id):
+    business_ctx_model: models.BusinessCtxModel = st.session_state.dbsession.get(
+        models.BusinessCtxModel,
+        business_ctx_id,
+    )
+    if business_ctx_model:
+        business_ctx_title = business_ctx_model.title
+    else:
+        business_ctx_title = f"业务背景已被删除，ID={business_ctx_model}"
+    return business_ctx_title
+
+
+def format_business_ctx_text_area(business_ctx_id):
+    if business_ctx_id is None:
+        return ""
+    business_ctx_model: models.BusinessCtxModel = st.session_state.dbsession.get(
+        models.BusinessCtxModel,
+        business_ctx_id,
+    )
+    if business_ctx_model:
+        business_ctx_content = business_ctx_model.content
+    else:
+        business_ctx_content = f"业务背景已被删除，ID={business_ctx_model}"
+    return business_ctx_content
 
 
 def on_change_user_story_content():
     user_story_id = st.session_state.user_story_id
     user_story_content = st.session_state.user_story_content
-    if user_story_id == NEW_USER_STORY_ID:
-        sql = "INSERT INTO user_story_list (user_story_content) VALUES (:user_story_content);"
-        params = {
-            "user_story_content": user_story_content,
-        }
-        del st.session_state["user_story_id"]
-    else:
-        sql = "UPDATE user_story_list SET user_story_content=:user_story_content WHERE user_story_id=:user_story_id;"
-        params = {
-            "user_story_content": user_story_content,
-            "user_story_id": user_story_id,
-        }
-    with conn.session as conn_session:
-        conn_session.execute(
-            statement=text(sql),
-            params=params,
+    if user_story_id is None:
+        # dialog_add_user_story(user_story_content)  # RuntimeError: Could not find fragment with id
+        return
+    user_story_model: models.UserStoryModel = st.session_state.dbsession.get(
+        models.UserStoryModel,
+        user_story_id,
+    )
+    user_story_model.content = user_story_content
+    st.session_state.dbsession.commit()
+
+
+def on_change_user_business_ctx():
+    business_ctx_id = st.session_state.business_ctx_id
+    business_ctx_content = st.session_state.business_ctx_content
+    if business_ctx_id:
+        business_ctx_model: models.BusinessCtxModel = st.session_state.dbsession.get(
+            models.BusinessCtxModel,
+            business_ctx_id,
         )
-        conn_session.commit()
+        if business_ctx_model:
+            business_ctx_model.content = business_ctx_content
+    else:
+        business_ctx_model: models.BusinessCtxModel = models.BusinessCtxModel(
+            content=business_ctx_content,
+        )
+        st.session_state.dbsession.add(business_ctx_model)
+        st.session_state.business_ctx_id = business_ctx_model.id
+    st.session_state.dbsession.commit()
+
+
+@st.experimental_dialog("new user story")
+def dialog_add_user_story(content=""):
+    user_story_title = st.text_input("title")
+    if st.button("Submit"):
+        user_story_model = models.UserStoryModel(
+            business_ctx_id=st.session_state.business_ctx_id,
+            title=user_story_title,
+            content=content,
+        )
+        st.session_state.dbsession.add(user_story_model)
+        st.session_state.dbsession.commit()
+        st.session_state.user_story_id = user_story_model.id
+        st.rerun()
+
+
+@st.experimental_dialog("modify user story title")
+def dialog_modify_user_story_title():
+    user_story_title = st.text_input("title", format_user_story_selectbox(st.session_state.user_story_id))
+    if st.button("Submit"):
+        user_story_model = st.session_state.dbsession.get(
+            models.UserStoryModel,
+            st.session_state.user_story_id,
+        )
+        user_story_model.title = user_story_title
+        st.session_state.dbsession.commit()
+        st.rerun()
+
+
+@st.experimental_dialog("delete user story")
+def dialog_delete_user_story():
+    dialog_left_column, dialog_right_column = st.columns(2)
+    confirm = dialog_left_column.button("Confirm", type="primary")
+    dialog_right_column.button("Cancel")
+    if confirm:
+        user_story_model: models.UserStoryModel = st.session_state.dbsession.get(
+            models.UserStoryModel,
+            st.session_state.user_story_id,
+        )
+        user_story_model.status = models.STATUS_DELETE
+        st.session_state.dbsession.commit()
+        st.rerun()
 
 
 left_column, right_column = st.columns(2)
 with right_column:
-    user_story_selectbox_index = st.selectbox(
-      "User Story List",
-      options=user_story_selectbox_options,
-      key="user_story_id",
-      format_func=format_user_story_selectbox,
-      index=user_story_selectbox_index,
-    )
+    left_column2, right_column2 = st.columns([0.9, 0.1])
 
-    user_story = st.text_area(
-        "User Story",
-        format_user_story_text_area(user_story_selectbox_index),
-        key="user_story_content",
-        height= 300,
-        on_change=on_change_user_story_content
-    )
+    with left_column2:
+        user_story_selectbox_id = st.selectbox(
+          "User Story List",
+          options=user_story_selectbox_options,
+          key="user_story_id",
+          format_func=format_user_story_selectbox,
+          index=user_story_selectbox_index,
+        )
+
+    with right_column2:
+        container = st.container(height=12, border=False)
+        with st.popover(
+                label="操作",
+                use_container_width=True,  # 宽度适配父容器
+        ):
+            button_add_clicked = st.button(
+                "添加",
+                disabled=not st.session_state.get("business_ctx_id"),
+                help="请先添加"
+            )
+            button_modify_clicked = st.button(
+                "修改",
+                disabled=not user_story_selectbox_options,
+            )
+            button_delete_clicked = st.button(
+                "删除",
+                disabled=not user_story_selectbox_options,
+                type="primary",
+            )
+
+        if button_add_clicked:
+            dialog_add_user_story()
+        if button_modify_clicked:
+            dialog_modify_user_story_title()
+        if button_delete_clicked:
+            dialog_delete_user_story()
+
+    if st.session_state.user_story_id:
+        user_story = st.text_area(
+            "User Story",
+            format_user_story_text_area(user_story_selectbox_id),
+            key="user_story_content",
+            height=300,
+            on_change=on_change_user_story_content,
+        )
+    else:
+        user_story = st.text_area(
+            "User Story",
+            # disabled=True,
+            key="user_story_content",
+            height=300,
+            # on_change=on_change_user_story_content,
+        )
+        if user_story:
+            dialog_add_user_story(user_story)
+
+    # TODO st.selectbox ac
+    # TODO st.text_area ac
+
+    # TODO st.selectbox business_ctx
 
     business_ctx = st.text_area(
         "Business Context",
-        "整个学籍管理系统是一个 Web 应用； 当教职员工发放录取通知时，会同步建立学生的账号；学生可以根据身份信息，查询自己的账号；在报道注册时，学生登录账号，按照录取通知书完成学年的注册；",
-        height= 300,
+        format_business_ctx_text_area(business_ctx_selectbox_id),
+        key="business_ctx_content",
+        height=300,
+        on_change=on_change_user_business_ctx,
     )
 
 with left_column:    

@@ -264,12 +264,109 @@ def dialog_delete_user_story():
         st.rerun()
 
 
+acceptance_criteria_list: [models.AcceptanceCriteriaModel] = st.session_state.dbsession.query(
+    models.AcceptanceCriteriaModel,
+).filter(
+    models.AcceptanceCriteriaModel.status == models.STATUS_ALIVE,
+).order_by(
+    models.AcceptanceCriteriaModel.created.desc()
+).all()
+acceptance_criteria_selectbox_options = [acceptance_criteria_model.id for acceptance_criteria_model in acceptance_criteria_list]
+if "acceptance_criteria_id" in st.session_state and st.session_state.acceptance_criteria_id in acceptance_criteria_selectbox_options:
+    acceptance_criteria_selectbox_index = acceptance_criteria_selectbox_options.index(st.session_state.acceptance_criteria_id)
+else:
+    acceptance_criteria_selectbox_index = 0
+
+
+def format_acceptance_criteria_selectbox(acceptance_criteria_id):
+    acceptance_criteria_model: models.AcceptanceCriteriaModel = st.session_state.dbsession.get(
+        models.AcceptanceCriteriaModel,
+        acceptance_criteria_id,
+    )
+    if acceptance_criteria_model:
+        acceptance_criteria_title = acceptance_criteria_model.title
+    else:
+        acceptance_criteria_title = f"用户故事已被删除，ID={acceptance_criteria_model}"
+    return acceptance_criteria_title
+
+
+def format_acceptance_criteria_text_area(acceptance_criteria_id):
+    if acceptance_criteria_id is None:
+        return ""
+    acceptance_criteria_model: models.AcceptanceCriteriaModel = st.session_state.dbsession.get(
+        models.AcceptanceCriteriaModel,
+        acceptance_criteria_id,
+    )
+    if acceptance_criteria_model:
+        acceptance_criteria_content = acceptance_criteria_model.content
+    else:
+        acceptance_criteria_content = f"用户故事已被删除，ID={acceptance_criteria_model}"
+    return acceptance_criteria_content
+
+
+def on_change_acceptance_criteria_content():
+    acceptance_criteria_id = st.session_state.acceptance_criteria_id
+    acceptance_criteria_content = st.session_state.acceptance_criteria_content
+    if acceptance_criteria_id is None:
+        # dialog_add_acceptance_criteria(acceptance_criteria_content)  # RuntimeError: Could not find fragment with id
+        return
+    acceptance_criteria_model: models.UserStoryModel = st.session_state.dbsession.get(
+        models.AcceptanceCriteriaModel,
+        acceptance_criteria_id,
+    )
+    acceptance_criteria_model.content = acceptance_criteria_content
+    st.session_state.dbsession.commit()
+
+
+@st.experimental_dialog("new acceptance criteria")
+def dialog_add_acceptance_criteria(content=""):
+    acceptance_criteria_title = st.text_input("title")
+    if st.button("Submit"):
+        acceptance_criteria_model = models.AcceptanceCriteriaModel(
+            user_story_id=st.session_state.user_story_id,
+            title=acceptance_criteria_title,
+            content=content,
+        )
+        st.session_state.dbsession.add(acceptance_criteria_model)
+        st.session_state.dbsession.commit()
+        st.session_state.acceptance_criteria_id = acceptance_criteria_model.id
+        st.rerun()
+
+
+@st.experimental_dialog("modify user acceptance criteria")
+def dialog_modify_acceptance_criteria_title():
+    acceptance_criteria_title = st.text_input("title", format_acceptance_criteria_selectbox(st.session_state.acceptance_criteria_id))
+    if st.button("Submit"):
+        acceptance_criteria_model = st.session_state.dbsession.get(
+            models.AcceptanceCriteriaModel,
+            st.session_state.acceptance_criteria_id,
+        )
+        acceptance_criteria_model.title = acceptance_criteria_title
+        st.session_state.dbsession.commit()
+        st.rerun()
+
+
+@st.experimental_dialog("delete acceptance criteria")
+def dialog_delete_acceptance_criteria():
+    dialog_left_column, dialog_right_column = st.columns(2)
+    confirm = dialog_left_column.button("Confirm", type="primary")
+    dialog_right_column.button("Cancel")
+    if confirm:
+        acceptance_criteria_model: models.AcceptanceCriteriaModel = st.session_state.dbsession.get(
+            models.AcceptanceCriteriaModel,
+            st.session_state.acceptance_criteria_id,
+        )
+        acceptance_criteria_model.status = models.STATUS_DELETE
+        st.session_state.dbsession.commit()
+        st.rerun()
+
+
 left_column, right_column = st.columns(2)
 with right_column:
-    left_column2, right_column2 = st.columns([0.9, 0.1])
+    left_column_us, right_column_us = st.columns([0.9, 0.1])
 
-    with left_column2:
-        user_story_selectbox_id = st.selectbox(
+    with left_column_us:
+        acceptance_criteria_selectbox_id = st.selectbox(
           "User Story List",
           options=user_story_selectbox_options,
           key="user_story_id",
@@ -277,7 +374,7 @@ with right_column:
           index=user_story_selectbox_index,
         )
 
-    with right_column2:
+    with right_column_us:
         container = st.container(height=12, border=False)
         with st.popover(
                 label="操作",
@@ -286,7 +383,6 @@ with right_column:
             button_add_clicked = st.button(
                 "添加",
                 disabled=not st.session_state.get("business_ctx_id"),
-                help="请先添加"
             )
             button_modify_clicked = st.button(
                 "修改",
@@ -308,8 +404,8 @@ with right_column:
     if st.session_state.user_story_id:
         user_story = st.text_area(
             "User Story",
-            format_user_story_text_area(user_story_selectbox_id),
-            key="user_story_content",
+            format_user_story_text_area(st.session_state.user_story_id),
+            key="123qwe",
             height=300,
             on_change=on_change_user_story_content,
         )
@@ -326,6 +422,66 @@ with right_column:
 
     # TODO st.selectbox ac
     # TODO st.text_area ac
+    left_column_ac, right_column_ac = st.columns([0.9, 0.1])
+
+    with left_column_ac:
+        acceptance_criteria_selectbox_id = st.selectbox(
+          "Acceptance Criteria List",
+          options=acceptance_criteria_selectbox_options,
+          key="acceptance_criteria_id",
+          format_func=format_acceptance_criteria_selectbox,
+          index=acceptance_criteria_selectbox_index,
+        )
+
+    with right_column_ac:
+        container = st.container(height=12, border=False)
+        with st.popover(
+                label="操作",
+                use_container_width=True,  # 宽度适配父容器
+        ):
+            button_add_clicked = st.button(
+                "添加",
+                key="button_add_ac",
+                disabled=not st.session_state.get("user_story_id"),
+            )
+            button_modify_clicked = st.button(
+                "修改",
+                key="button_modify_ac",
+                disabled=not acceptance_criteria_selectbox_options,
+            )
+            button_delete_clicked = st.button(
+                "删除",
+                key="button_delete_ac",
+                disabled=not acceptance_criteria_selectbox_options,
+                type="primary",
+            )
+
+        if button_add_clicked:
+            dialog_add_acceptance_criteria()
+        if button_modify_clicked:
+            dialog_modify_acceptance_criteria_title()
+        if button_delete_clicked:
+            dialog_delete_acceptance_criteria()
+
+    if st.session_state.acceptance_criteria_id:
+        acceptance_criteria = st.text_area(
+            "Acceptance Criteria",
+            format_acceptance_criteria_text_area(acceptance_criteria_selectbox_id),
+            key="acceptance_criteria_content",
+            height=300,
+            on_change=on_change_acceptance_criteria_content,
+        )
+        # TODO
+    else:
+        acceptance_criteria = st.text_area(
+            "User Story",
+            # disabled=True,
+            key="acceptance_criteria_content",
+            height=300,
+            # on_change=on_change_acceptance_criteria_content,
+        )
+        if acceptance_criteria:
+            dialog_add_acceptance_criteria(acceptance_criteria)
 
     # TODO st.selectbox business_ctx
 

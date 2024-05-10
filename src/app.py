@@ -7,8 +7,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from streamlit_float import *
 from langchain.agents import create_tool_calling_agent
 from langchain.agents import initialize_agent, load_tools
-from sqlalchemy import text
-import database
+
 import models
 from utils import *
 
@@ -54,15 +53,19 @@ float_init(theme=True, include_unstable_primary=False)
 
 load_dotenv()
 
+import database
+conn = database.conn
 
-@st.cache_resource(ttl=3600, show_spinner=False)
-def get_database_session():
-    database_config = st.secrets["database"]
-    return database.get_database_session(database_config)
-
-
-if 'dbsession' not in st.session_state:
-    st.session_state.dbsession = get_database_session()
+print("#"*100)
+# conn = st.connection('database', type='sql', pool_pre_ping=True)
+# @st.cache_resource(ttl=3600, show_spinner=False)
+# def get_database_session():
+#     database_config = st.secrets["database"]
+#     return database.get_database_session(database_config)
+#
+#
+# if 'dbsession' not in st.session_state:
+#     conn.session = get_database_session()
 
 
 def get_response(user_query, chat_history, user_story, business_ctx, is_interactive = True):
@@ -104,10 +107,10 @@ else:
     border = True
 
 
-user_story_list: [models.UserStoryModel] = st.session_state.dbsession.query(
+user_story_list: [models.UserStoryModel] = conn.session.query(
     models.UserStoryModel,
 ).filter(
-    models.UserStoryModel.status == models.STATUS_ALIVE,
+    models.UserStoryModel.status == models.const.STATUS_ALIVE,
 ).order_by(
     models.UserStoryModel.created.desc()
 ).all()
@@ -117,10 +120,10 @@ if "user_story_id" in st.session_state and st.session_state.user_story_id in use
 else:
     user_story_selectbox_index = 0
 
-business_ctx_list: [models.BusinessCtxModel] = st.session_state.dbsession.query(
+business_ctx_list: [models.BusinessCtxModel] = conn.session.query(
     models.BusinessCtxModel
 ).filter(
-    models.BusinessCtxModel.status == models.STATUS_ALIVE,
+    models.BusinessCtxModel.status == models.const.STATUS_ALIVE,
 ).order_by(
     models.BusinessCtxModel.created.desc()
 ).all()
@@ -137,7 +140,7 @@ else:
 
 
 def format_user_story_selectbox(user_story_id):
-    user_story_model: models.UserStoryModel = st.session_state.dbsession.get(
+    user_story_model: models.UserStoryModel = conn.session.get(
         models.UserStoryModel,
         user_story_id,
     )
@@ -151,7 +154,7 @@ def format_user_story_selectbox(user_story_id):
 def format_user_story_text_area(user_story_id):
     if user_story_id is None:
         return ""
-    user_story_model: models.UserStoryModel = st.session_state.dbsession.get(
+    user_story_model: models.UserStoryModel = conn.session.get(
         models.UserStoryModel,
         user_story_id,
     )
@@ -163,7 +166,7 @@ def format_user_story_text_area(user_story_id):
 
 
 def format_business_ctx_selectbox(business_ctx_id):
-    business_ctx_model: models.BusinessCtxModel = st.session_state.dbsession.get(
+    business_ctx_model: models.BusinessCtxModel = conn.session.get(
         models.BusinessCtxModel,
         business_ctx_id,
     )
@@ -177,7 +180,7 @@ def format_business_ctx_selectbox(business_ctx_id):
 def format_business_ctx_text_area(business_ctx_id):
     if business_ctx_id is None:
         return ""
-    business_ctx_model: models.BusinessCtxModel = st.session_state.dbsession.get(
+    business_ctx_model: models.BusinessCtxModel = conn.session.get(
         models.BusinessCtxModel,
         business_ctx_id,
     )
@@ -194,31 +197,32 @@ def on_change_user_story_content():
     if user_story_id is None:
         # dialog_add_user_story(user_story_content)  # RuntimeError: Could not find fragment with id
         return
-    user_story_model: models.UserStoryModel = st.session_state.dbsession.get(
-        models.UserStoryModel,
-        user_story_id,
-    )
+    # user_story_model: models.UserStoryModel = conn.session.get(
+    #     models.UserStoryModel,
+    #     user_story_id,
+    # )
+    # user_story_model.content = user_story_content
+    # conn.session.commit()
+    user_story_model = models.UserStoryModel.get(st.session_state.user_story_id)
     user_story_model.content = user_story_content
-    st.session_state.dbsession.commit()
+    user_story_model.save()
 
 
 def on_change_user_business_ctx():
     business_ctx_id = st.session_state.business_ctx_id
     business_ctx_content = st.session_state.business_ctx_content
     if business_ctx_id:
-        business_ctx_model: models.BusinessCtxModel = st.session_state.dbsession.get(
-            models.BusinessCtxModel,
+        business_ctx_model = models.BusinessCtxModel.get(
             business_ctx_id,
         )
         if business_ctx_model:
             business_ctx_model.content = business_ctx_content
     else:
-        business_ctx_model: models.BusinessCtxModel = models.BusinessCtxModel(
+        business_ctx_model = models.BusinessCtxModel(
             content=business_ctx_content,
-        )
-        st.session_state.dbsession.add(business_ctx_model)
+        ).save()
         st.session_state.business_ctx_id = business_ctx_model.id
-    st.session_state.dbsession.commit()
+    business_ctx_model.save()
 
 
 @st.experimental_dialog("new user story")
@@ -229,9 +233,7 @@ def dialog_add_user_story(content=""):
             business_ctx_id=st.session_state.business_ctx_id,
             title=user_story_title,
             content=content,
-        )
-        st.session_state.dbsession.add(user_story_model)
-        st.session_state.dbsession.commit()
+        ).save()
         st.session_state.user_story_id = user_story_model.id
         st.rerun()
 
@@ -240,12 +242,9 @@ def dialog_add_user_story(content=""):
 def dialog_modify_user_story_title():
     user_story_title = st.text_input("title", format_user_story_selectbox(st.session_state.user_story_id))
     if st.button("Submit"):
-        user_story_model = st.session_state.dbsession.get(
-            models.UserStoryModel,
-            st.session_state.user_story_id,
-        )
+        user_story_model = models.UserStoryModel.get(st.session_state.user_story_id)
         user_story_model.title = user_story_title
-        st.session_state.dbsession.commit()
+        user_story_model.save()
         st.rerun()
 
 
@@ -255,19 +254,16 @@ def dialog_delete_user_story():
     confirm = dialog_left_column.button("Confirm", type="primary")
     dialog_right_column.button("Cancel")
     if confirm:
-        user_story_model: models.UserStoryModel = st.session_state.dbsession.get(
-            models.UserStoryModel,
-            st.session_state.user_story_id,
-        )
-        user_story_model.status = models.STATUS_DELETE
-        st.session_state.dbsession.commit()
+        # models.UserStoryModel.delete_by_id(st.session_state.user_story_id)
+        models.UserStoryModel.get(st.session_state.user_story_id).delete()
         st.rerun()
 
 
-acceptance_criteria_list: [models.AcceptanceCriteriaModel] = st.session_state.dbsession.query(
+acceptance_criteria_list: [models.AcceptanceCriteriaModel] = conn.session.query(
     models.AcceptanceCriteriaModel,
 ).filter(
-    models.AcceptanceCriteriaModel.status == models.STATUS_ALIVE,
+    models.AcceptanceCriteriaModel.user_story_id == st.session_state.user_story_id,
+    models.AcceptanceCriteriaModel.status == models.const.STATUS_ALIVE,
 ).order_by(
     models.AcceptanceCriteriaModel.created.desc()
 ).all()
@@ -279,7 +275,7 @@ else:
 
 
 def format_acceptance_criteria_selectbox(acceptance_criteria_id):
-    acceptance_criteria_model: models.AcceptanceCriteriaModel = st.session_state.dbsession.get(
+    acceptance_criteria_model: models.AcceptanceCriteriaModel = conn.session.get(
         models.AcceptanceCriteriaModel,
         acceptance_criteria_id,
     )
@@ -293,7 +289,7 @@ def format_acceptance_criteria_selectbox(acceptance_criteria_id):
 def format_acceptance_criteria_text_area(acceptance_criteria_id):
     if acceptance_criteria_id is None:
         return ""
-    acceptance_criteria_model: models.AcceptanceCriteriaModel = st.session_state.dbsession.get(
+    acceptance_criteria_model: models.AcceptanceCriteriaModel = conn.session.get(
         models.AcceptanceCriteriaModel,
         acceptance_criteria_id,
     )
@@ -310,12 +306,11 @@ def on_change_acceptance_criteria_content():
     if acceptance_criteria_id is None:
         # dialog_add_acceptance_criteria(acceptance_criteria_content)  # RuntimeError: Could not find fragment with id
         return
-    acceptance_criteria_model: models.UserStoryModel = st.session_state.dbsession.get(
-        models.AcceptanceCriteriaModel,
+    acceptance_criteria_model = models.AcceptanceCriteriaModel.get(
         acceptance_criteria_id,
     )
     acceptance_criteria_model.content = acceptance_criteria_content
-    st.session_state.dbsession.commit()
+    acceptance_criteria_model.save()
 
 
 @st.experimental_dialog("new acceptance criteria")
@@ -326,9 +321,7 @@ def dialog_add_acceptance_criteria(content=""):
             user_story_id=st.session_state.user_story_id,
             title=acceptance_criteria_title,
             content=content,
-        )
-        st.session_state.dbsession.add(acceptance_criteria_model)
-        st.session_state.dbsession.commit()
+        ).save()
         st.session_state.acceptance_criteria_id = acceptance_criteria_model.id
         st.rerun()
 
@@ -337,12 +330,11 @@ def dialog_add_acceptance_criteria(content=""):
 def dialog_modify_acceptance_criteria_title():
     acceptance_criteria_title = st.text_input("title", format_acceptance_criteria_selectbox(st.session_state.acceptance_criteria_id))
     if st.button("Submit"):
-        acceptance_criteria_model = st.session_state.dbsession.get(
-            models.AcceptanceCriteriaModel,
+        acceptance_criteria_model = models.AcceptanceCriteriaModel.get(
             st.session_state.acceptance_criteria_id,
         )
         acceptance_criteria_model.title = acceptance_criteria_title
-        st.session_state.dbsession.commit()
+        acceptance_criteria_model.save()
         st.rerun()
 
 
@@ -352,146 +344,143 @@ def dialog_delete_acceptance_criteria():
     confirm = dialog_left_column.button("Confirm", type="primary")
     dialog_right_column.button("Cancel")
     if confirm:
-        acceptance_criteria_model: models.AcceptanceCriteriaModel = st.session_state.dbsession.get(
-            models.AcceptanceCriteriaModel,
-            st.session_state.acceptance_criteria_id,
-        )
-        acceptance_criteria_model.status = models.STATUS_DELETE
-        st.session_state.dbsession.commit()
+        models.AcceptanceCriteriaModel.get(st.session_state.acceptance_criteria_id).delete()
         st.rerun()
 
 
 left_column, right_column = st.columns(2)
 with right_column:
-    left_column_us, right_column_us = st.columns([0.9, 0.1])
+    tab_user_story, tab_ddd, tab_tdd = st.tabs(["User Story", "DDD", "TDD"])
+    with tab_user_story:
+        left_column_us, right_column_us = st.columns([0.9, 0.1])
 
-    with left_column_us:
-        acceptance_criteria_selectbox_id = st.selectbox(
-          "User Story List",
-          options=user_story_selectbox_options,
-          key="user_story_id",
-          format_func=format_user_story_selectbox,
-          index=user_story_selectbox_index,
-        )
-
-    with right_column_us:
-        container = st.container(height=12, border=False)
-        with st.popover(
-                label="操作",
-                use_container_width=True,  # 宽度适配父容器
-        ):
-            button_add_clicked = st.button(
-                "添加",
-                disabled=not st.session_state.get("business_ctx_id"),
-            )
-            button_modify_clicked = st.button(
-                "修改",
-                disabled=not user_story_selectbox_options,
-            )
-            button_delete_clicked = st.button(
-                "删除",
-                disabled=not user_story_selectbox_options,
-                type="primary",
+        with left_column_us:
+            acceptance_criteria_selectbox_id = st.selectbox(
+              "User Story List",
+              options=user_story_selectbox_options,
+              key="user_story_id",
+              format_func=format_user_story_selectbox,
+              index=user_story_selectbox_index,
             )
 
-        if button_add_clicked:
-            dialog_add_user_story()
-        if button_modify_clicked:
-            dialog_modify_user_story_title()
-        if button_delete_clicked:
-            dialog_delete_user_story()
+        with right_column_us:
+            container = st.container(height=12, border=False)
+            with st.popover(
+                    label="操作",
+                    use_container_width=True,  # 宽度适配父容器
+            ):
+                button_add_clicked = st.button(
+                    "添加",
+                    disabled=not st.session_state.get("business_ctx_id"),
+                )
+                button_modify_clicked = st.button(
+                    "修改",
+                    disabled=not user_story_selectbox_options,
+                )
+                button_delete_clicked = st.button(
+                    "删除",
+                    disabled=not user_story_selectbox_options,
+                    type="primary",
+                )
 
-    if st.session_state.user_story_id:
-        user_story = st.text_area(
-            "User Story",
-            format_user_story_text_area(st.session_state.user_story_id),
-            key="123qwe",
+            if button_add_clicked:
+                dialog_add_user_story()
+            if button_modify_clicked:
+                dialog_modify_user_story_title()
+            if button_delete_clicked:
+                dialog_delete_user_story()
+
+        if st.session_state.user_story_id:
+            user_story = st.text_area(
+                "User Story",
+                format_user_story_text_area(st.session_state.user_story_id),
+                key="user_story_content",
+                height=300,
+                on_change=on_change_user_story_content,
+            )
+        else:
+            user_story = st.text_area(
+                "User Story",
+                # disabled=True,
+                key="user_story_content",
+                height=300,
+                # on_change=on_change_user_story_content,
+            )
+            if user_story:
+                dialog_add_user_story(user_story)
+
+        # TODO st.selectbox ac
+        # TODO st.text_area ac
+        left_column_ac, right_column_ac = st.columns([0.9, 0.1])
+
+        with left_column_ac:
+            acceptance_criteria_selectbox_id = st.selectbox(
+              "Acceptance Criteria List",
+              options=acceptance_criteria_selectbox_options,
+              key="acceptance_criteria_id",
+              format_func=format_acceptance_criteria_selectbox,
+              index=acceptance_criteria_selectbox_index,
+            )
+
+        with right_column_ac:
+            container = st.container(height=12, border=False)
+            with st.popover(
+                    label="操作",
+                    use_container_width=True,  # 宽度适配父容器
+            ):
+                button_add_clicked = st.button(
+                    "添加",
+                    key="button_add_ac",
+                    disabled=not st.session_state.get("user_story_id"),
+                )
+                button_modify_clicked = st.button(
+                    "修改",
+                    key="button_modify_ac",
+                    disabled=not acceptance_criteria_selectbox_options,
+                )
+                button_delete_clicked = st.button(
+                    "删除",
+                    key="button_delete_ac",
+                    disabled=not acceptance_criteria_selectbox_options,
+                    type="primary",
+                )
+
+            if button_add_clicked:
+                dialog_add_acceptance_criteria()
+            if button_modify_clicked:
+                dialog_modify_acceptance_criteria_title()
+            if button_delete_clicked:
+                dialog_delete_acceptance_criteria()
+
+        if st.session_state.acceptance_criteria_id:
+            acceptance_criteria = st.text_area(
+                "Acceptance Criteria",
+                format_acceptance_criteria_text_area(acceptance_criteria_selectbox_id),
+                key="acceptance_criteria_content",
+                height=300,
+                on_change=on_change_acceptance_criteria_content,
+            )
+            # TODO
+        else:
+            acceptance_criteria = st.text_area(
+                "User Story",
+                # disabled=True,
+                key="acceptance_criteria_content",
+                height=300,
+                # on_change=on_change_acceptance_criteria_content,
+            )
+            if acceptance_criteria:
+                dialog_add_acceptance_criteria(acceptance_criteria)
+
+        # TODO st.selectbox business_ctx
+
+        business_ctx = st.text_area(
+            "Business Context",
+            format_business_ctx_text_area(business_ctx_selectbox_id),
+            key="business_ctx_content",
             height=300,
-            on_change=on_change_user_story_content,
+            on_change=on_change_user_business_ctx,
         )
-    else:
-        user_story = st.text_area(
-            "User Story",
-            # disabled=True,
-            key="user_story_content",
-            height=300,
-            # on_change=on_change_user_story_content,
-        )
-        if user_story:
-            dialog_add_user_story(user_story)
-
-    # TODO st.selectbox ac
-    # TODO st.text_area ac
-    left_column_ac, right_column_ac = st.columns([0.9, 0.1])
-
-    with left_column_ac:
-        acceptance_criteria_selectbox_id = st.selectbox(
-          "Acceptance Criteria List",
-          options=acceptance_criteria_selectbox_options,
-          key="acceptance_criteria_id",
-          format_func=format_acceptance_criteria_selectbox,
-          index=acceptance_criteria_selectbox_index,
-        )
-
-    with right_column_ac:
-        container = st.container(height=12, border=False)
-        with st.popover(
-                label="操作",
-                use_container_width=True,  # 宽度适配父容器
-        ):
-            button_add_clicked = st.button(
-                "添加",
-                key="button_add_ac",
-                disabled=not st.session_state.get("user_story_id"),
-            )
-            button_modify_clicked = st.button(
-                "修改",
-                key="button_modify_ac",
-                disabled=not acceptance_criteria_selectbox_options,
-            )
-            button_delete_clicked = st.button(
-                "删除",
-                key="button_delete_ac",
-                disabled=not acceptance_criteria_selectbox_options,
-                type="primary",
-            )
-
-        if button_add_clicked:
-            dialog_add_acceptance_criteria()
-        if button_modify_clicked:
-            dialog_modify_acceptance_criteria_title()
-        if button_delete_clicked:
-            dialog_delete_acceptance_criteria()
-
-    if st.session_state.acceptance_criteria_id:
-        acceptance_criteria = st.text_area(
-            "Acceptance Criteria",
-            format_acceptance_criteria_text_area(acceptance_criteria_selectbox_id),
-            key="acceptance_criteria_content",
-            height=300,
-            on_change=on_change_acceptance_criteria_content,
-        )
-        # TODO
-    else:
-        acceptance_criteria = st.text_area(
-            "User Story",
-            # disabled=True,
-            key="acceptance_criteria_content",
-            height=300,
-            # on_change=on_change_acceptance_criteria_content,
-        )
-        if acceptance_criteria:
-            dialog_add_acceptance_criteria(acceptance_criteria)
-
-    # TODO st.selectbox business_ctx
-
-    business_ctx = st.text_area(
-        "Business Context",
-        format_business_ctx_text_area(business_ctx_selectbox_id),
-        key="business_ctx_content",
-        height=300,
-        on_change=on_change_user_business_ctx,
-    )
 
 with left_column:    
     with st.container(border=border, height=800):

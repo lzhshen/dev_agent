@@ -59,7 +59,7 @@ def init_database_session():
 def create_table():
     reset_table = st.secrets.get("reset_table")
     fake_data = st.secrets.get("fake_data")
-    log.info(f"create_table reset_table={reset_table} fake_data={fake_data}")
+    log.debug(f"create_table reset_table={reset_table} fake_data={fake_data}")
 
     # engine = conn.engine
     # session = conn.session
@@ -100,15 +100,25 @@ def generate_fake_user_story(business_ctx_id):
 
 def generate_fake_acceptance_criteria(user_story_id):
     from models import AcceptanceCriteriaModel
-    for index in range(10):
-        AcceptanceCriteriaModel(
-            user_story_id=user_story_id,
-            title=f"验收标准 {index}",
-            content=f"""Given 教学计划页面打开
-When 录取通知注册到教学计划
-Then 显示获取学位的进度 {index}
+    AcceptanceCriteriaModel(
+        user_story_id=user_story_id,
+        title=f"验收标准",
+        content=f"""1. 场景1：正常注册
+Given: 学生收到电子录取通知，上面有学号和登录信息
+When: 学生使用学号和身份信息登录学籍管理系统
+Then: 系统显示注册页面，学生按照录取通知完成注册，系统自动关联学生信息
+
+2. 场景2：身份验证
+Given: 学生登录后，系统要求上传身份证件
+When: 学生上传清晰的身份证照片
+Then: 系统验证通过，学生继续完成注册流程
+
+3. 场景3：教职员工查看进度
+Given: 教职员工登录系统进入学生管理界面
+When: 教职员工搜索或选择特定学生
+Then: 系统显示该学生的课程进度、成绩和毕业要求完成情况，教职工可追踪学生学习进度
 """,
-        ).save()
+    ).save()
     return
 
 

@@ -1,7 +1,10 @@
+import os
+
 import streamlit as st
 from streamlit.logger import get_logger
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_openai import ChatOpenAI
+from langchain_community.llms import Tongyi
 from dotenv import load_dotenv
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
@@ -9,6 +12,7 @@ from streamlit_float import *
 from langchain.agents import create_tool_calling_agent
 from langchain.agents import initialize_agent, load_tools
 
+import database
 import view
 from utils import *
 
@@ -57,13 +61,23 @@ float_init(theme=True, include_unstable_primary=False)
 
 load_dotenv()
 
+# `set_page_config()` must be called as the first Streamlit command in your script.
+database.init_database()
+
 
 def get_response(user_query, chat_history, user_story, business_ctx, is_interactive = True):
+    if "DASHSCOPE_API_KEY" in os.environ:
+        llm_chat = Tongyi
+        llm_model_name = "qwen1.5-110b-chat"
+    # elif "OPENAI_API_KEY" in os.environ:
+    else:
+        llm_chat = ChatOpenAI
+        llm_model_name = "gpt-4-turbo-preview"
 
     if is_interactive:
-        llm = ChatOpenAI(temperature=0.0, model="gpt-4-turbo-preview", model_kwargs={"stop": "\nAnswer"})
+        llm = llm_chat(temperature=0.0, model=llm_model_name, model_kwargs={"stop": "\nAnswer"})
     else:
-        llm = ChatOpenAI(temperature=0.0, model="gpt-4-turbo-preview")
+        llm = llm_chat(temperature=0.0, model=llm_model_name)
     # output_parser = StrOutputParser()
     output_parser = MyStrOutputParser()
     prompt = ChatPromptTemplate.from_template(user_story_template)

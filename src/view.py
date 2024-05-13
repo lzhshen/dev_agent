@@ -5,12 +5,9 @@ from models import (
     BusinessCtxModel,
     UserStoryModel,
 )
-import database
 
 
 def user_story_tab():
-    # `set_page_config()` must be called as the first Streamlit command in your script.
-    database.init_database()
 
     # database models
     business_ctx_list: [BusinessCtxModel] = BusinessCtxModel.list()

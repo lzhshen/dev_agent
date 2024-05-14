@@ -6,6 +6,7 @@ from models import (
     BusinessCtxModel,
     UserStoryModel,
 )
+import const
 
 log = get_logger(__name__)
 
@@ -111,6 +112,11 @@ def user_story_tab():
             business_ctx_content = f"业务背景已被删除，ID={business_ctx_model}"
         return business_ctx_content
 
+    def on_change_user_story_list():
+        print("on_change_user_story_list")
+        if "user_story_content" in st.session_state:
+            del st.session_state["user_story_content"]
+
     def on_change_user_story_content():
         on_change_user_story_id = st.session_state.user_story_id
         user_story_content = st.session_state.user_story_content
@@ -147,6 +153,7 @@ def user_story_tab():
                 content=content,
             ).save()
             st.session_state.user_story_id = user_story_model.id
+            st.session_state.user_story_text_status = const.TEXT_STATUS_SAVE
             st.rerun()
 
     @st.experimental_dialog("modify user story title")
@@ -245,7 +252,12 @@ def user_story_tab():
             st.rerun()
 
     # user story columns
-    left_column_us, right_column_us = st.columns([0.9, 0.1])
+    (
+        left_column_us,
+        right_column_us_add,
+        right_column_us_modify,
+        right_column_us_delete,
+    ) = st.columns([0.6, 0.1, 0.1, 0.1])
 
     with left_column_us:
         user_story_id = st.selectbox(
@@ -254,57 +266,114 @@ def user_story_tab():
             key="user_story_id",
             format_func=format_user_story_selectbox,
             index=user_story_selectbox_index,
+            # on_change=on_change_user_story_list(),
         )
 
-    with right_column_us:
+    # with right_column_us:
+    #     st.container(height=12, border=False)
+    #     with st.popover(
+    #             label="操作",
+    #             use_container_width=True,  # 宽度适配父容器
+    #     ):
+    with right_column_us_add:
         st.container(height=12, border=False)
-        with st.popover(
-                label="操作",
-                use_container_width=True,  # 宽度适配父容器
-        ):
-            button_add_clicked = st.button(
-                "添加",
-                disabled=not st.session_state.get("business_ctx_id"),
-            )
-            button_modify_clicked = st.button(
-                "修改",
-                disabled=not user_story_selectbox_options,
-            )
-            button_delete_clicked = st.button(
-                "删除",
-                disabled=not user_story_selectbox_options,
-                type="primary",
-            )
-
-        if button_add_clicked:
-            dialog_add_user_story()
-        if button_modify_clicked:
-            dialog_modify_user_story_title()
-        if button_delete_clicked:
-            dialog_delete_user_story()
-
-    if st.session_state.user_story_id:
-        user_story = st.text_area(
-            "User Story",
-            format_user_story_text_area(user_story_id),
-            key="user_story_content",
-            height=300,
-            on_change=on_change_user_story_content,
+        button_add_clicked = st.button(
+            "添加",
+            disabled=not st.session_state.get("business_ctx_id"),
         )
+    with right_column_us_modify:
+        st.container(height=12, border=False)
+        button_modify_clicked = st.button(
+            "修改",
+            disabled=not user_story_selectbox_options,
+        )
+    with right_column_us_delete:
+        st.container(height=12, border=False)
+        button_delete_clicked = st.button(
+            "删除",
+            disabled=not user_story_selectbox_options,
+            type="primary",
+        )
+
+    if button_add_clicked:
+        dialog_add_user_story()
+    if button_modify_clicked:
+        dialog_modify_user_story_title()
+    if button_delete_clicked:
+        dialog_delete_user_story()
+
+    # if st.session_state.user_story_id:
+    #     user_story = st.text_area(
+    #         "User Story",
+    #         format_user_story_text_area(user_story_id),
+    #         key="user_story_content",
+    #         height=300,
+    #         on_change=on_change_user_story_content,
+    #     )
+    # else:
+    #     user_story = st.text_area(
+    #         "User Story",
+    #         # disabled=True,
+    #         key="user_story_content",
+    #         height=300,
+    #         # on_change=on_change_user_story_content,
+    #     )
+    #     if user_story:
+    #         dialog_add_user_story(user_story)
+
+    st.session_state.setdefault("user_story_text_status", const.TEXT_STATUS_INIT)
+    # if st.session_state.get("user_story_content"):
+    #     text_area_value = st.session_state["user_story_content"]
+    # elif user_story_id:
+    #     text_area_value = format_user_story_text_area(user_story_id)
+    # else:
+    #     text_area_value = ""
+    if user_story_id:
+        text_area_value = format_user_story_text_area(user_story_id)
     else:
-        user_story = st.text_area(
-            "User Story",
-            # disabled=True,
-            key="user_story_content",
-            height=300,
-            # on_change=on_change_user_story_content,
+        text_area_value = ""
+
+    user_story = st.text_area(
+        "User Story",
+        text_area_value,
+        # disabled=True,
+        key="user_story_content",
+        height=300,
+    )
+    if (user_story_id and format_user_story_text_area(user_story_id) != user_story) \
+            or (not user_story_id and user_story):
+        st.session_state["user_story_text_status"] = const.TEXT_STATUS_CHANGE
+    elif st.session_state.get("user_story_text_status") == const.TEXT_STATUS_CHANGE:
+        st.session_state["user_story_text_status"] = const.TEXT_STATUS_INIT
+
+    right_column_us_save, left_column_us_save = st.columns([0.2, 0.6])
+    with right_column_us_save:
+        button_save_user_story_clicked = st.button(
+            "保存",
         )
-        if user_story:
+    if button_save_user_story_clicked:
+        if st.session_state.user_story_id:
+            user_story_model = UserStoryModel.get(st.session_state.user_story_id)
+            user_story_model.content = user_story
+            user_story_model.save()
+            st.session_state.user_story_text_status = const.TEXT_STATUS_SAVE
+        else:
             dialog_add_user_story(user_story)
+    with left_column_us_save:
+        user_story_text_status = st.session_state.get("user_story_text_status")
+        if user_story_text_status == const.TEXT_STATUS_INIT:
+            pass
+        elif user_story_text_status == const.TEXT_STATUS_CHANGE:
+            st.warning('unsaved', icon="ℹ")
+        elif user_story_text_status == const.TEXT_STATUS_SAVE:
+            del st.session_state["user_story_text_status"]
+            st.info('save success', icon="ℹ")
+        else:
+            st.error(f'unknown user_story_text_status={user_story_text_status}')
 
     # acceptance criteria columns
-    left_column_ac, right_column_ac = st.columns([0.9, 0.1])
-
+    # left_column_ac, right_column_ac = st.columns([0.9, 0.1])
+    #
     # with left_column_ac:
     #     acceptance_criteria_selectbox_id = st.selectbox(
     #       "Acceptance Criteria List",
@@ -364,24 +433,104 @@ def user_story_tab():
     #     if acceptance_criteria:
     #         dialog_add_acceptance_criteria(acceptance_criteria)
 
+    # acceptance_criteria = st.text_area(
+    #     "Acceptance Criteria",
+    #     format_acceptance_criteria_text_area(acceptance_criteria_id),
+    #     key="acceptance_criteria_content",
+    #     height=300,
+    #     placeholder="please input",
+    #     on_change=on_change_acceptance_criteria_content,
+    # )
+
+    st.session_state.setdefault("ac_text_status", const.TEXT_STATUS_INIT)
+    if acceptance_criteria_id:
+        text_area_value = format_acceptance_criteria_text_area(acceptance_criteria_id)
+    else:
+        text_area_value = ""
+
     acceptance_criteria = st.text_area(
         "Acceptance Criteria",
-        format_acceptance_criteria_text_area(acceptance_criteria_id),
+        text_area_value,
         key="acceptance_criteria_content",
         height=300,
         placeholder="please input",
-        on_change=on_change_acceptance_criteria_content,
     )
+    if (acceptance_criteria_id and format_acceptance_criteria_text_area(acceptance_criteria_id) != acceptance_criteria)\
+            or (not acceptance_criteria_id and acceptance_criteria):
+        st.session_state["ac_text_status"] = const.TEXT_STATUS_CHANGE
+    elif st.session_state.get("ac_text_status") == const.TEXT_STATUS_CHANGE:
+        st.session_state["ac_text_status"] = const.TEXT_STATUS_INIT
+
+    right_column_bc_save, left_column_bc_save = st.columns([0.2, 0.6])
+    with right_column_bc_save:
+        button_save_acceptance_criteria_clicked = st.button(
+            "保存",
+            key="button_save_acceptance_criteria_clicked"
+        )
+    if button_save_acceptance_criteria_clicked:
+        on_change_acceptance_criteria_content()
+        st.session_state.ac_text_status = const.TEXT_STATUS_SAVE
+    with left_column_bc_save:
+        ac_text_status = st.session_state.get("ac_text_status")
+        if ac_text_status == const.TEXT_STATUS_INIT:
+            pass
+        elif ac_text_status == const.TEXT_STATUS_CHANGE:
+            st.warning('unsaved', icon="ℹ")
+        elif ac_text_status == const.TEXT_STATUS_SAVE:
+            del st.session_state["ac_text_status"]
+            st.info('save success', icon="ℹ")
+        else:
+            st.error(f'unknown ac_text_status={ac_text_status}')
 
     # TODO st.selectbox business_ctx
 
+    # business_ctx = st.text_area(
+    #     "Business Context",
+    #     format_business_ctx_text_area(business_ctx_id),
+    #     key="business_ctx_content",
+    #     height=300,
+    #     on_change=on_change_user_business_ctx,
+    # )
+
+    st.session_state.setdefault("business_ctx_text_status", const.TEXT_STATUS_INIT)
+    if business_ctx_id:
+        text_area_value = format_business_ctx_text_area(business_ctx_id)
+    else:
+        text_area_value = ""
+
     business_ctx = st.text_area(
         "Business Context",
-        format_business_ctx_text_area(business_ctx_id),
+        text_area_value,
         key="business_ctx_content",
         height=300,
-        on_change=on_change_user_business_ctx,
+        # on_change=on_change_user_business_ctx,
     )
+    if (business_ctx_id and format_business_ctx_text_area(business_ctx_id) != business_ctx) \
+            or (not business_ctx_id and business_ctx):
+        st.session_state["business_ctx_text_status"] = const.TEXT_STATUS_CHANGE
+    elif st.session_state.get("business_ctx_text_status") == const.TEXT_STATUS_CHANGE:
+        st.session_state["business_ctx_text_status"] = const.TEXT_STATUS_INIT
+
+    right_column_bc_save, left_column_bc_save = st.columns([0.2, 0.6])
+    with right_column_bc_save:
+        button_save_business_ctx_clicked = st.button(
+            "保存",
+            key="button_save_business_ctx_clicked"
+        )
+    if button_save_business_ctx_clicked:
+        on_change_user_business_ctx()
+        st.session_state.business_ctx_text_status = const.TEXT_STATUS_SAVE
+    with left_column_bc_save:
+        business_ctx_text_status = st.session_state.get("business_ctx_text_status")
+        if business_ctx_text_status == const.TEXT_STATUS_INIT:
+            pass
+        elif business_ctx_text_status == const.TEXT_STATUS_CHANGE:
+            st.warning('unsaved', icon="ℹ")
+        elif business_ctx_text_status == const.TEXT_STATUS_SAVE:
+            del st.session_state["business_ctx_text_status"]
+            st.info('save success', icon="ℹ")
+        else:
+            st.error(f'unknown business_ctx_text_status={business_ctx_text_status}')
     return user_story, business_ctx
 
 

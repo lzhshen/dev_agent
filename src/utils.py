@@ -1,5 +1,7 @@
 from langchain_core.output_parsers.transform import BaseTransformOutputParser
 from typing import List
+
+
 class MyStrOutputParser(BaseTransformOutputParser[str]):
     """OutputParser that parses LLMResult into the top likely string."""
 
@@ -20,6 +22,7 @@ class MyStrOutputParser(BaseTransformOutputParser[str]):
 
     def parse(self, text: str) -> str:
         """Returns the input text with no changes."""
-        if text in ["Thought", "Question", "Answer", ]:
+        if text in ["Thought", "Question", "Answer", "Given", "When", "Then"]:
             text = '\n' + text
         return text
+

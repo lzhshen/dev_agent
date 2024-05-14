@@ -1,13 +1,19 @@
+import os
+
 import streamlit as st
+from streamlit.logger import get_logger
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_openai import ChatOpenAI
+from langchain_community.llms import Tongyi
 from dotenv import load_dotenv
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from streamlit_float import *
 from langchain.agents import create_tool_calling_agent
 from langchain.agents import initialize_agent, load_tools
-from sqlalchemy import text
+
+import database
+import view
 from utils import *
 
 user_story_template = """
@@ -44,24 +50,41 @@ Scenarios: List all possible scenarios with concrete example in Given/When/Then 
 {input}
 请使用中文
 """
-
-# 新增用户故事-特殊ID
-NEW_USER_STORY_ID = -1
-
 # app config
 st.set_page_config(page_title="Streaming bot", page_icon="🤖", layout="wide")
 st.title("Streaming bot")
+
+log = get_logger(__name__)
+log.info("###################### st.rerun ######################")
 
 float_init(theme=True, include_unstable_primary=False)
 
 load_dotenv()
 
-def get_response(user_query, chat_history, user_story, business_ctx, is_interactive = True):
-  
-    if is_interactive:
-        llm = ChatOpenAI(temperature=0.0, model="gpt-4-turbo-preview", model_kwargs={"stop": "\nAnswer"})
+# `set_page_config()` must be called as the first Streamlit command in your script.
+database.init_database()
+
+
+def get_response(user_query, chat_history, user_story, business_ctx, is_interactive=True):
+    if "DASHSCOPE_API_KEY" in os.environ:
+        llm_chat = Tongyi
+        llm_model_name = "qwen1.5-0.5b-chat"  # 通义千问1.5对外开源的0.5B规模参数量是经过人类指令对齐的chat模型
+        # llm_model_name = "qwen1.5-110b-chat"  # 通义千问1.5对外开源的110B规模参数量是经过人类指令对齐的chat模型
+        # llm_model_name = "baichuan-7b-v1"  # 由百川智能开发的一个开源的大规模预训练模型，70亿参数，支持中英双语，上下文窗口长度为4096。
+        # llm_model_name = "baichuan2-13b-chat-v1"  # 由百川智能开发的一个开源的大规模预训练模型，130亿参数，支持中英双语，上下文窗口长度为4096。
+        # llm_model_name = "llama3-8b-instruct"  # Llama3系列是Meta在2024年4月18日公开发布的大型语言模型（LLMs），llama3-8B拥有80亿参数，模型最大输入为6500，最大输出为1500，仅支持message格式，限时免费调用。
+        # llm_model_name = "ziya-llama-13b-v1"  # 姜子牙通用大模型由IDEA研究院认知计算与自然语言研究中心主导开源，具备翻译、编程、文本分类、信息抽取、摘要、文案生成、常识问答和数学计算等能力。
+        # llm_model_name = "chatyuan-large-v2"  # ChatYuan模型是由元语智能出品的大规模语言模型，它在灵积平台上的模型名称为"chatyuan-large-v2"。ChatYuan-large-v2是一个支持中英双语的功能型对话语言大模型，是继ChatYuan系列中ChatYuan-large-v1开源后的又一个开源模型。
+
+    # elif "OPENAI_API_KEY" in os.environ:
     else:
-        llm = ChatOpenAI(temperature=0.0, model="gpt-4-turbo-preview")
+        llm_chat = ChatOpenAI
+        llm_model_name = "gpt-4-turbo-preview"
+
+    if is_interactive:
+        llm = llm_chat(temperature=0.0, model=llm_model_name, model_kwargs={"stop": "\nAnswer"})
+    else:
+        llm = llm_chat(temperature=0.0, model=llm_model_name)
     # output_parser = StrOutputParser()
     output_parser = MyStrOutputParser()
     prompt = ChatPromptTemplate.from_template(user_story_template)
@@ -76,6 +99,7 @@ def get_response(user_query, chat_history, user_story, business_ctx, is_interact
         }
     )
     return stream
+
 
 # Initialize chat history
 if "chat_history" not in st.session_state:
@@ -93,105 +117,14 @@ if "chat_history" not in st.session_state:
 else:
     border = True
 
-# Initialize database
-conn = st.connection('database', type='sql')
-with conn.session as conn_session:
-    conn_session.execute(text("""CREATE TABLE IF NOT EXISTS user_story_list (
-    user_story_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_story_content TEXT);
-    """))
-    user_story_df = conn.query("SELECT * FROM user_story_list", ttl=1)
-    if user_story_df.empty:
-        conn_session.execute(
-            text("INSERT INTO user_story_list (user_story_content) VALUES (:user_story_content);"),
-            params={
-                "user_story_content": """作为学校的教职员工（As a faculty），
-我希望学生可以根据录取通知将学籍注册到教学计划上（I want the student to be able to enroll in an academic program with given offer），
-从而我可以跟踪他们的获取学位的进度（So that I can track their progress）"""
-                }
-        )
-    conn_session.commit()
-
-
-user_story_df = conn.query("SELECT user_story_id, user_story_content FROM user_story_list", ttl=1)
-user_story_list = user_story_df.to_dict(orient='records')
-user_story_selectbox_options = list(user_story_df["user_story_id"])
-user_story_selectbox_options.insert(0, NEW_USER_STORY_ID)
-if "user_story_id" in st.session_state and st.session_state.user_story_id in user_story_selectbox_options:
-    user_story_selectbox_index = user_story_selectbox_options.index(st.session_state.user_story_id)
-else:
-    user_story_selectbox_index = len(user_story_selectbox_options) - 1
-
-
-def format_user_story_selectbox(user_story_id):
-    if user_story_id == NEW_USER_STORY_ID:
-        return "新增用户故事"
-    else:
-        for user_story_info in user_story_list:
-            if user_story_info["user_story_id"] == user_story_id:
-                return user_story_info["user_story_content"]
-    return f"用户故事已被删除，ID={user_story_id}"
-
-
-def format_user_story_text_area(user_story_id):
-    if user_story_id == NEW_USER_STORY_ID:
-        return ""
-    else:
-        for user_story_info in user_story_list:
-            if user_story_info["user_story_id"] == user_story_id:
-                return user_story_info["user_story_content"]
-    return f"用户故事已被删除，ID={user_story_id}"
-
-
-def on_change_user_story_content():
-    user_story_id = st.session_state.user_story_id
-    user_story_content = st.session_state.user_story_content
-    if user_story_id == NEW_USER_STORY_ID:
-        sql = "INSERT INTO user_story_list (user_story_content) VALUES (:user_story_content);"
-        params = {
-            "user_story_content": user_story_content,
-        }
-        del st.session_state["user_story_id"]
-    else:
-        sql = "UPDATE user_story_list SET user_story_content=:user_story_content WHERE user_story_id=:user_story_id;"
-        params = {
-            "user_story_content": user_story_content,
-            "user_story_id": user_story_id,
-        }
-    with conn.session as conn_session:
-        conn_session.execute(
-            statement=text(sql),
-            params=params,
-        )
-        conn_session.commit()
-
-
 left_column, right_column = st.columns(2)
 with right_column:
-    user_story_selectbox_index = st.selectbox(
-      "User Story List",
-      options=user_story_selectbox_options,
-      key="user_story_id",
-      format_func=format_user_story_selectbox,
-      index=user_story_selectbox_index,
-    )
+    # tab_user_story, tab_ddd, tab_tdd = st.tabs(["User Story", "DDD", "TDD"])
+    # with tab_user_story:
+    user_story, business_ctx = view.user_story_tab()
 
-    user_story = st.text_area(
-        "User Story",
-        format_user_story_text_area(user_story_selectbox_index),
-        key="user_story_content",
-        height= 300,
-        on_change=on_change_user_story_content
-    )
-
-    business_ctx = st.text_area(
-        "Business Context",
-        "整个学籍管理系统是一个 Web 应用； 当教职员工发放录取通知时，会同步建立学生的账号；学生可以根据身份信息，查询自己的账号；在报道注册时，学生登录账号，按照录取通知书完成学年的注册；",
-        height= 300,
-    )
-
-with left_column:    
-    with st.container(border=border, height=800):
+with left_column:
+    with st.container(border=border, height=1100):
         # conversation
         for message in st.session_state.chat_history:
             if isinstance(message, AIMessage):
@@ -202,9 +135,10 @@ with left_column:
                     st.write(message.content)
 
         # user input
-        is_interactive = st.checkbox("交互对话模式", value=True)
         user_query = ''
         with st.container():
+            is_interactive = st.checkbox("交互对话模式", value=False)
+
             user_query = st.chat_input("What is up?")
             button_b_pos = "0rem"
             button_css = float_css_helper(width="2.2rem", bottom=button_b_pos, transition=0)
@@ -221,3 +155,4 @@ with left_column:
                 response = st.write_stream(get_response(user_query, st.session_state.chat_history, user_story, business_ctx, is_interactive))
 
             st.session_state.chat_history.append(AIMessage(content=response))
+

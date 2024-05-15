@@ -1,16 +1,12 @@
 import os
 
-import streamlit as st
 from streamlit.logger import get_logger
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_openai import ChatOpenAI
 from langchain_community.llms import Tongyi
 from dotenv import load_dotenv
-from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from streamlit_float import *
-from langchain.agents import create_tool_calling_agent
-from langchain.agents import initialize_agent, load_tools
 
 import database
 import view
@@ -76,6 +72,8 @@ def get_response(user_query, chat_history, user_story, business_ctx, is_interact
         # llm_model_name = "ziya-llama-13b-v1"  # 姜子牙通用大模型由IDEA研究院认知计算与自然语言研究中心主导开源，具备翻译、编程、文本分类、信息抽取、摘要、文案生成、常识问答和数学计算等能力。
         # llm_model_name = "chatyuan-large-v2"  # ChatYuan模型是由元语智能出品的大规模语言模型，它在灵积平台上的模型名称为"chatyuan-large-v2"。ChatYuan-large-v2是一个支持中英双语的功能型对话语言大模型，是继ChatYuan系列中ChatYuan-large-v1开源后的又一个开源模型。
 
+        # llm_model_name = st.session_state.llm_model_name
+
     # elif "OPENAI_API_KEY" in os.environ:
     else:
         llm_chat = ChatOpenAI
@@ -119,9 +117,7 @@ else:
 
 left_column, right_column = st.columns(2)
 with right_column:
-    # tab_user_story, tab_ddd, tab_tdd = st.tabs(["User Story", "DDD", "TDD"])
-    # with tab_user_story:
-    user_story, business_ctx = view.user_story_tab()
+    user_story, business_ctx = view.user_story()
 
 with left_column:
     with st.container(border=border, height=1100):
@@ -139,11 +135,28 @@ with left_column:
         with st.container():
             is_interactive = st.checkbox("交互对话模式", value=False)
 
+            # st.selectbox(
+            #     "大模型",
+            #     options=[
+            #         "",
+            #         "qwen1.5-0.5b-chat",
+            #         "qwen1.5-110b-chat",
+            #         "baichuan-7b-v1",
+            #         "baichuan2-13b-chat-v1",
+            #         "llama3-8b-instruct",
+            #         "ziya-llama-13b-v1",
+            #         "chatyuan-large-v2",
+            #     ],
+            #     key="llm_model_name",
+            #     index=0,
+            # )
+
             user_query = st.chat_input("What is up?")
             button_b_pos = "0rem"
             button_css = float_css_helper(width="2.2rem", bottom=button_b_pos, transition=0)
             float_parent(css=button_css)
 
+        # if user_query is not None and user_query != "" and st.session_state.llm_model_name:
         if user_query is not None and user_query != "":
             st.session_state.chat_history.append(HumanMessage(content=user_query))
 

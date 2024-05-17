@@ -67,6 +67,11 @@ class BaseModel(DeclarativeBase):
         return result
 
     @classmethod
+    def get_or_create(cls, id_, **kwargs):
+        result: Optional[cls] = cls.get(id_)
+        return result if result else cls(**kwargs)
+
+    @classmethod
     def query(cls) -> Query:
         db_session = cls.get_db_session()
         return db_session.query(cls)
@@ -109,39 +114,41 @@ class BaseModel(DeclarativeBase):
         db_session.add(self)
         db_session.commit()
 
+    def is_new(self):
+        return self.id is None
 
-class BusinessCtxModel(BaseModel):
-    __tablename__ = "business_ctx"
-    title: Mapped[str] = mapped_column(Text, nullable=False, default="title")
-    content: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default="")
+    def __bool__(self):
+        return not self.is_new()
 
 
 class UserStoryModel(BaseModel):
     __tablename__ = "user_story"
-    business_ctx_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False, default="title")
     content: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default="")
+    business_ctx: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default="")
+    acceptance_criteria: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default="")
+    ddd_dict: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default="")
+    ddd_model: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default="")
+    tdd_task: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default="")
+    tdd_code: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default="")
 
-
-class AcceptanceCriteriaModel(BaseModel):
-    __tablename__ = "acceptance_criteria"
-    user_story_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
-    title: Mapped[str] = mapped_column(Text, nullable=False, default="title")
-    content: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default="")
+    # def __init__(self, title: str, content: str, business_ctx: str):
+    #     super().__init__(title=title, content=content, business_ctx=business_ctx)
 
 
 def test_case():
     import database
     database.init_database()
 
-    obj_new = BusinessCtxModel(
+    obj_new = UserStoryModel(
         title="test",
     )
+    print("obj_new.id:", obj_new.id)
     obj_created = obj_new.save()
     obj_id = obj_created.id
     obj_created.delete()
     print("obj_created.id:", obj_id)
-    obj_get = BusinessCtxModel.get(obj_id)
+    obj_get = UserStoryModel.get(obj_id)
     print("obj_get.title:", obj_get.title)
     print("obj_get.status:", obj_get.status)
     assert obj_created.id == obj_get.id
@@ -151,8 +158,8 @@ def test_case():
     # obj_list: List[BusinessCtxModel] = BusinessCtxModel.list(
     #     BusinessCtxModel.status == const.STATUS_DELETE
     # )
-    obj_list: List[BusinessCtxModel] = BusinessCtxModel.query().filter(
-        BusinessCtxModel.status == const.STATUS_DELETE
+    obj_list: List[UserStoryModel] = UserStoryModel.query().filter(
+        UserStoryModel.status == const.STATUS_DELETE
     ).all()
     print(obj_list)
     # for obj in obj_list:
@@ -161,16 +168,82 @@ def test_case():
 
 
 def test_sqlalchemy_expression():
-    expr: BinaryExpression = BusinessCtxModel.status == const.STATUS_ALIVE
+    expr: BinaryExpression = UserStoryModel.status == const.STATUS_ALIVE
     print(type(expr))
     print(expr.left)
-    assert expr.left == BusinessCtxModel.status
+    assert expr.left == UserStoryModel.status
     # for key in dir(expr):
     #     print(key, getattr(expr, key, None))
-    query: Query = BusinessCtxModel.get_db_session().query(BusinessCtxModel)
+    query: Query = UserStoryModel.get_db_session().query(UserStoryModel)
     print(type(query))
 
 
 if __name__ == "__main__":
     test_case()
     test_sqlalchemy_expression()
+
+
+# class BusinessCtxModel(BaseModel):
+#     __tablename__ = "business_ctx"
+#     title: Mapped[str] = mapped_column(Text, nullable=False, default="title")
+#     content: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default="")
+#
+#
+# class UserStoryModel(BaseModel):
+#     __tablename__ = "user_story"
+#     business_ctx_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+#     title: Mapped[str] = mapped_column(Text, nullable=False, default="title")
+#     content: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default="")
+#
+#
+# class AcceptanceCriteriaModel(BaseModel):
+#     __tablename__ = "acceptance_criteria"
+#     user_story_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+#     title: Mapped[str] = mapped_column(Text, nullable=False, default="title")
+#     content: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default="")
+#
+#
+# def test_case():
+#     import database
+#     database.init_database()
+#
+#     obj_new = BusinessCtxModel(
+#         title="test",
+#     )
+#     obj_created = obj_new.save()
+#     obj_id = obj_created.id
+#     obj_created.delete()
+#     print("obj_created.id:", obj_id)
+#     obj_get = BusinessCtxModel.get(obj_id)
+#     print("obj_get.title:", obj_get.title)
+#     print("obj_get.status:", obj_get.status)
+#     assert obj_created.id == obj_get.id
+#     assert obj_created.title == obj_get.title
+#     assert obj_created.status == obj_get.status
+#
+#     # obj_list: List[BusinessCtxModel] = BusinessCtxModel.list(
+#     #     BusinessCtxModel.status == const.STATUS_DELETE
+#     # )
+#     obj_list: List[BusinessCtxModel] = BusinessCtxModel.query().filter(
+#         BusinessCtxModel.status == const.STATUS_DELETE
+#     ).all()
+#     print(obj_list)
+#     # for obj in obj_list:
+#     #     print(obj.id, obj.created, obj.title)
+#     assert obj_id in [obj.id for obj in obj_list]
+#
+#
+# def test_sqlalchemy_expression():
+#     expr: BinaryExpression = BusinessCtxModel.status == const.STATUS_ALIVE
+#     print(type(expr))
+#     print(expr.left)
+#     assert expr.left == BusinessCtxModel.status
+#     # for key in dir(expr):
+#     #     print(key, getattr(expr, key, None))
+#     query: Query = BusinessCtxModel.get_db_session().query(BusinessCtxModel)
+#     print(type(query))
+#
+#
+# if __name__ == "__main__":
+#     test_case()
+#     test_sqlalchemy_expression()

@@ -1,9 +1,10 @@
 import streamlit as st
 from streamlit.logger import get_logger
+from typing import List
 
 from models import (
-    AcceptanceCriteriaModel,
-    BusinessCtxModel,
+    # AcceptanceCriteriaModel,
+    # BusinessCtxModel,
     UserStoryModel,
 )
 import const
@@ -13,59 +14,61 @@ log = get_logger(__name__)
 
 def user_story():
     # database models
-    business_ctx_list: [BusinessCtxModel] = BusinessCtxModel.list()
-    business_ctx_selectbox_options = [business_ctx_model.id for business_ctx_model in business_ctx_list]
-    if "business_ctx_id" in st.session_state and st.session_state.business_ctx_id in business_ctx_selectbox_options:
-        # business_ctx_selectbox_index = business_ctx_selectbox_options.index(st.session_state.business_ctx_id)
-        business_ctx_id = st.session_state.business_ctx_id
-    elif business_ctx_selectbox_options:
-        # business_ctx_selectbox_index = 0
-        business_ctx_id = business_ctx_selectbox_options[0]
-        st.session_state.business_ctx_id = business_ctx_id
-    else:
-        # business_ctx_selectbox_index = 0
-        business_ctx_id = None
-        st.session_state.business_ctx_id = None
-    log.debug(f"{business_ctx_id=} {st.session_state.business_ctx_id=}")
+    user_story_selectbox_options = [user_story_model.id for user_story_model in UserStoryModel.list()]
 
-    user_story_list: [UserStoryModel] = UserStoryModel.list(
-        UserStoryModel.business_ctx_id == business_ctx_id
-    )
-    user_story_selectbox_options = [user_story_model.id for user_story_model in user_story_list]
-    if "user_story_id" in st.session_state and st.session_state.user_story_id in user_story_selectbox_options:
-        user_story_selectbox_index = user_story_selectbox_options.index(st.session_state.user_story_id)
-        user_story_id = st.session_state["user_story_id"]
-    elif user_story_selectbox_options:
-        user_story_selectbox_index = 0
-        user_story_id = user_story_selectbox_options[user_story_selectbox_index]
-        st.session_state.user_story_id = user_story_id
-    else:
-        user_story_selectbox_index = 0
-        user_story_id = None
-        st.session_state.user_story_id = None
-    log.debug(f"{user_story_selectbox_index=} {user_story_id=} {st.session_state.user_story_id=}")
-
-    acceptance_criteria_list: [AcceptanceCriteriaModel] = AcceptanceCriteriaModel.list(
-        AcceptanceCriteriaModel.user_story_id == user_story_id,
-    )
-    acceptance_criteria_selectbox_options = [
-        acceptance_criteria_model.id for acceptance_criteria_model in acceptance_criteria_list
-    ]
-    if "acceptance_criteria_id" in st.session_state and \
-            st.session_state.acceptance_criteria_id in acceptance_criteria_selectbox_options:
-        # acceptance_criteria_selectbox_index = acceptance_criteria_selectbox_options.index(
-        #     st.session_state.acceptance_criteria_id
-        # )
-        acceptance_criteria_id = st.session_state.acceptance_criteria_id
-    elif acceptance_criteria_selectbox_options:
-        # acceptance_criteria_selectbox_index = 0
-        acceptance_criteria_id = acceptance_criteria_selectbox_options[0]
-        st.session_state.acceptance_criteria_id = acceptance_criteria_id
-    else:
-        # acceptance_criteria_selectbox_index = None
-        acceptance_criteria_id = None
-        st.session_state.acceptance_criteria_id = None
-    log.debug(f"{acceptance_criteria_id=} {st.session_state.acceptance_criteria_id=}")
+    # business_ctx_list: [BusinessCtxModel] = BusinessCtxModel.list()
+    # business_ctx_selectbox_options = [business_ctx_model.id for business_ctx_model in business_ctx_list]
+    # if "business_ctx_id" in st.session_state and st.session_state.business_ctx_id in business_ctx_selectbox_options:
+    #     # business_ctx_selectbox_index = business_ctx_selectbox_options.index(st.session_state.business_ctx_id)
+    #     business_ctx_id = st.session_state.business_ctx_id
+    # elif business_ctx_selectbox_options:
+    #     # business_ctx_selectbox_index = 0
+    #     business_ctx_id = business_ctx_selectbox_options[0]
+    #     st.session_state.business_ctx_id = business_ctx_id
+    # else:
+    #     # business_ctx_selectbox_index = 0
+    #     business_ctx_id = None
+    #     st.session_state.business_ctx_id = None
+    # log.debug(f"{business_ctx_id=} {st.session_state.business_ctx_id=}")
+    #
+    # user_story_list: [UserStoryModel] = UserStoryModel.list(
+    #     UserStoryModel.business_ctx_id == business_ctx_id
+    # )
+    # user_story_selectbox_options = [user_story_model.id for user_story_model in user_story_list]
+    # if "user_story_id" in st.session_state and st.session_state.user_story_id in user_story_selectbox_options:
+    #     user_story_selectbox_index = user_story_selectbox_options.index(st.session_state.user_story_id)
+    #     user_story_id = st.session_state["user_story_id"]
+    # elif user_story_selectbox_options:
+    #     user_story_selectbox_index = 0
+    #     user_story_id = user_story_selectbox_options[user_story_selectbox_index]
+    #     st.session_state.user_story_id = user_story_id
+    # else:
+    #     user_story_selectbox_index = 0
+    #     user_story_id = None
+    #     st.session_state.user_story_id = None
+    # log.debug(f"{user_story_selectbox_index=} {user_story_id=} {st.session_state.user_story_id=}")
+    #
+    # acceptance_criteria_list: [AcceptanceCriteriaModel] = AcceptanceCriteriaModel.list(
+    #     AcceptanceCriteriaModel.user_story_id == user_story_id,
+    # )
+    # acceptance_criteria_selectbox_options = [
+    #     acceptance_criteria_model.id for acceptance_criteria_model in acceptance_criteria_list
+    # ]
+    # if "acceptance_criteria_id" in st.session_state and \
+    #         st.session_state.acceptance_criteria_id in acceptance_criteria_selectbox_options:
+    #     # acceptance_criteria_selectbox_index = acceptance_criteria_selectbox_options.index(
+    #     #     st.session_state.acceptance_criteria_id
+    #     # )
+    #     acceptance_criteria_id = st.session_state.acceptance_criteria_id
+    # elif acceptance_criteria_selectbox_options:
+    #     # acceptance_criteria_selectbox_index = 0
+    #     acceptance_criteria_id = acceptance_criteria_selectbox_options[0]
+    #     st.session_state.acceptance_criteria_id = acceptance_criteria_id
+    # else:
+    #     # acceptance_criteria_selectbox_index = None
+    #     acceptance_criteria_id = None
+    #     st.session_state.acceptance_criteria_id = None
+    # log.debug(f"{acceptance_criteria_id=} {st.session_state.acceptance_criteria_id=}")
 
     # streamlit elements function
     def format_user_story_selectbox(format_user_story_id):

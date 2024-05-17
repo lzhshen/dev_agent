@@ -1,16 +1,14 @@
 import os
 
+import streamlit
 from streamlit.logger import get_logger
 from langchain_core.messages import AIMessage, HumanMessage
 from dotenv import load_dotenv
 from streamlit_float import *
 
 import database
-from models import (
-    AcceptanceCriteriaModel,
-    BusinessCtxModel,
-    UserStoryModel,
-)
+from const import KEY_USER_STORY_ID
+from models import UserStoryModel
 from utils import *
 
 ddd_dict_template = """用户故事
@@ -45,126 +43,81 @@ if "ddd_chat_history" not in st.session_state:
 else:
     border = True
 
+# session state
+if "ddd_chat_history" not in st.session_state:
+    st.session_state.ddd_chat_history = [
+        AIMessage(content="Hello, I am a bot. How can I help you?"),
+    ]
+    border = False
+else:
+    border = True
 
 left_column, right_column = st.columns(2)
 with right_column:
-
-    business_ctx_list: [BusinessCtxModel] = BusinessCtxModel.list()
-    business_ctx_selectbox_options = [business_ctx_model.id for business_ctx_model in business_ctx_list]
-    if "business_ctx_id" in st.session_state and st.session_state.business_ctx_id in business_ctx_selectbox_options:
-        # business_ctx_selectbox_index = business_ctx_selectbox_options.index(st.session_state.business_ctx_id)
-        business_ctx_id = st.session_state.business_ctx_id
-    elif business_ctx_selectbox_options:
-        # business_ctx_selectbox_index = 0
-        business_ctx_id = business_ctx_selectbox_options[0]
-        st.session_state.business_ctx_id = business_ctx_id
-    else:
-        # business_ctx_selectbox_index = 0
-        business_ctx_id = None
-        st.session_state.business_ctx_id = None
-    log.debug(f"{business_ctx_id=} {st.session_state.business_ctx_id=}")
-
-    user_story_list: [UserStoryModel] = UserStoryModel.list(
-        UserStoryModel.business_ctx_id == business_ctx_id
-    )
-    user_story_selectbox_options = [user_story_model.id for user_story_model in user_story_list]
-    if "user_story_id" in st.session_state and st.session_state.user_story_id in user_story_selectbox_options:
-        user_story_selectbox_index = user_story_selectbox_options.index(st.session_state.user_story_id)
-        user_story_id = st.session_state["user_story_id"]
+    user_story_model_list: List[UserStoryModel] = UserStoryModel.list()
+    user_story_selectbox_options = [user_story_model.id for user_story_model in user_story_model_list]
+    if "selectbox_user_story_id" in st.session_state and st.session_state["selectbox_user_story_id"] in user_story_selectbox_options:
+        user_story_id = st.session_state["selectbox_user_story_id"]
+        user_story_selectbox_index = user_story_selectbox_options.index(user_story_id)
+    elif KEY_USER_STORY_ID in st.session_state and st.session_state[KEY_USER_STORY_ID] in user_story_selectbox_options:
+        user_story_id = st.session_state[KEY_USER_STORY_ID]
+        user_story_selectbox_index = user_story_selectbox_options.index(user_story_id)
     elif user_story_selectbox_options:
         user_story_selectbox_index = 0
-        user_story_id = user_story_selectbox_options[user_story_selectbox_index]
-        st.session_state.user_story_id = user_story_id
+        user_story_id = user_story_selectbox_options[0]
     else:
         user_story_selectbox_index = 0
         user_story_id = None
-        st.session_state.user_story_id = None
-    log.debug(f"{user_story_selectbox_index=} {user_story_id=} {st.session_state.user_story_id=}")
-
-    acceptance_criteria_list: [AcceptanceCriteriaModel] = AcceptanceCriteriaModel.list(
-        AcceptanceCriteriaModel.user_story_id == user_story_id,
-    )
-    acceptance_criteria_selectbox_options = [
-        acceptance_criteria_model.id for acceptance_criteria_model in acceptance_criteria_list
-    ]
-    if "acceptance_criteria_id" in st.session_state and \
-            st.session_state.acceptance_criteria_id in acceptance_criteria_selectbox_options:
-        # acceptance_criteria_selectbox_index = acceptance_criteria_selectbox_options.index(
-        #     st.session_state.acceptance_criteria_id
-        # )
-        acceptance_criteria_id = st.session_state.acceptance_criteria_id
-    elif acceptance_criteria_selectbox_options:
-        # acceptance_criteria_selectbox_index = 0
-        acceptance_criteria_id = acceptance_criteria_selectbox_options[0]
-        st.session_state.acceptance_criteria_id = acceptance_criteria_id
-    else:
-        # acceptance_criteria_selectbox_index = None
-        acceptance_criteria_id = None
-        st.session_state.acceptance_criteria_id = None
-    log.debug(f"{acceptance_criteria_id=} {st.session_state.acceptance_criteria_id=}")
-
-    # streamlit elements function
-    def format_user_story_selectbox(format_user_story_id):
-        user_story_model: UserStoryModel = UserStoryModel.get(
-            format_user_story_id,
-        )
-        if user_story_model:
-            user_story_title = user_story_model.title
-        else:
-            user_story_title = f"用户故事已被删除，ID={user_story_model}"
-        return user_story_title
-
-    def format_user_story_text_area(format_user_story_id):
-        if format_user_story_id is None:
-            return ""
-        user_story_model = UserStoryModel.get(
-            format_user_story_id,
-        )
-        if user_story_model:
-            user_story_content = user_story_model.content
-        else:
-            user_story_content = f"用户故事已被删除，ID={user_story_model}"
-        return user_story_content
+    log.debug(f"{user_story_selectbox_index=} {user_story_id=}")
 
     user_story_id = st.selectbox(
-        "User Story List",
+        label="User Story List",
         options=user_story_selectbox_options,
-        key="user_story_id",
-        format_func=format_user_story_selectbox,
+        key="selectbox_user_story_id",  # Warning: st.session_state reset when switch page
+        # format_func=lambda id_: UserStoryModel.get(id_).title,
+        format_func=lambda id_: UserStoryModel.get(id_).title,
         index=user_story_selectbox_index,
         # on_change=on_change_user_story_list(),
         # help=format_user_story_text_area(user_story_id),
     )
-
-    if user_story_id:
-        text_area_value = format_user_story_text_area(user_story_id)
-    else:
-        text_area_value = ""
+    st.session_state[KEY_USER_STORY_ID] = user_story_id
+    user_story_model = UserStoryModel.get_or_create(user_story_id)
 
     ddd_dict = st.text_area(
-        "DDD Dict",
-        "",
+        label="DDD Dict",
+        value=user_story_model.ddd_dict,
         # disabled=True,
         height=300,
         disabled=not user_story_id,
         placeholder="please input" if user_story_id else "need user story",
         # label_visibility="collapsed",
     )
-    button_save_ddd_dict_clicked = st.button("保存", key="button_save_ddd_dict")
+    empty_warning = st.empty()
+    if ddd_dict != user_story_model.ddd_dict:
+        empty_warning.warning('unsaved', icon="ℹ")
+
+    button_save_ddd_dict_clicked = st.button(
+        "保存",
+        key="button_save_ddd_dict",
+        disabled=not user_story_id,
+    )
+    if button_save_ddd_dict_clicked:
+        user_story_model.ddd_dict = ddd_dict
+        user_story_model.save()
+        empty_warning.info('save success', icon="🎉")
+        # empty_warning.empty()
+        # st.toast('save success', icon='🎉')
 
     user_story = st.text_area(
         "User Story",
-        text_area_value,
+        user_story_model.content,
         # disabled=True,
         key="user_story_content",
         height=300,
-        disabled=not business_ctx_id,
-        placeholder="please input" if business_ctx_id else "need business ctx",
+        disabled=not user_story_id,
+        placeholder="please input" if user_story_id else "need add user story",
         # label_visibility="collapsed",
     )
-    # st.text(
-    #     text_area_value
-    # )
 
 
 with left_column:

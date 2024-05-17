@@ -1,5 +1,6 @@
 import os
 
+import streamlit
 from streamlit.logger import get_logger
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_openai import ChatOpenAI
@@ -9,7 +10,8 @@ from langchain_core.prompts import ChatPromptTemplate
 from streamlit_float import *
 
 import database
-import view
+from models import UserStoryModel
+from const import KEY_USER_STORY_ID
 from utils import *
 
 user_story_template = """
@@ -117,7 +119,159 @@ else:
 
 left_column, right_column = st.columns(2)
 with right_column:
-    user_story, business_ctx = view.user_story()
+    user_story_model_list: List[UserStoryModel] = UserStoryModel.list()
+    user_story_selectbox_options = [user_story_model.id for user_story_model in user_story_model_list]
+    if "selectbox_user_story_id" in st.session_state and st.session_state["selectbox_user_story_id"] in user_story_selectbox_options:
+        user_story_id = st.session_state["selectbox_user_story_id"]
+        user_story_selectbox_index = user_story_selectbox_options.index(user_story_id)
+    elif KEY_USER_STORY_ID in st.session_state and st.session_state[KEY_USER_STORY_ID] in user_story_selectbox_options:
+        user_story_id = st.session_state[KEY_USER_STORY_ID]
+        user_story_selectbox_index = user_story_selectbox_options.index(user_story_id)
+    elif user_story_selectbox_options:
+        user_story_selectbox_index = 0
+        user_story_id = user_story_selectbox_options[0]
+    else:
+        user_story_selectbox_index = 0
+        user_story_id =  None
+
+    # if user_story_selectbox_options:
+    #     user_story_model = user_story_model_list[user_story_selectbox_index]
+    # else:
+    #     user_story_model = UserStoryModel()
+    #
+    log.debug(f"{user_story_selectbox_index=} {user_story_id=}")
+
+    def on_change_user_story_list():
+        global user_story_id, user_story_model
+        log.debug(f"on change user_story_id={user_story_id} session={st.session_state.get(KEY_USER_STORY_ID)} select={st.session_state.get('selectbox_user_story_id')}")
+        # user_story_id = st.session_state.get('selectbox_user_story_id')
+        # user_story_model = UserStoryModel.get_or_create(user_story_id)
+        # st.session_state[KEY_USER_STORY_ID] = st.session_state.get('selectbox_user_story_id')
+
+    log.debug(f"before user_story_id={user_story_id} session={st.session_state.get(KEY_USER_STORY_ID)} select={st.session_state.get('selectbox_user_story_id')}")
+
+    user_story_id = st.selectbox(
+        label="User Story List",
+        options=user_story_selectbox_options,
+        key="selectbox_user_story_id",  # Warning: st.session_state reset when switch page
+        format_func=lambda id_: UserStoryModel.get(id_).title,
+        index=user_story_selectbox_index,
+        # on_change=on_change_user_story_list(),
+        # help=format_user_story_text_area(user_story_id),
+    )
+    st.session_state[KEY_USER_STORY_ID] = st.session_state.get('selectbox_user_story_id')
+    user_story_model = UserStoryModel.get_or_create(user_story_id)
+    log.debug(f"{user_story_model.id=} {user_story_model.title}")
+    log.debug(f"after user_story_id={user_story_id} session={st.session_state.get(KEY_USER_STORY_ID)} select={st.session_state.get('selectbox_user_story_id')}")
+
+    user_story = st.text_area(
+        "User Story",
+        user_story_model.content,
+        # disabled=True,
+        key="user_story_content",
+        disabled=not user_story_id,
+        placeholder="please input" if user_story_id else "need add user story",
+        # label_visibility="collapsed",
+    )
+    us_warning_container = st.empty()
+    if user_story != user_story_model.content:
+        us_warning_container.warning('unsaved', icon="ℹ")
+
+    (
+        right_column_us_save,
+        right_column_us_add,
+        right_column_us_delete,
+        left_column_us_info,
+        left_column_ac_info,
+    ) = st.columns([1, 1, 1, 3, 3])
+
+    with right_column_us_add:
+        button_add_clicked = st.button(
+            "新增",
+        )
+    with right_column_us_save:
+        button_save_clicked = st.button(
+            "保存",
+            key="button_save",
+            disabled=not user_story_id,
+        )
+    with right_column_us_delete:
+        button_delete_clicked = st.button(
+            "删除",
+            key="button_delete_clicked",
+            disabled=not user_story_id,
+            type="primary",
+        )
+
+    acceptance_criteria = st.text_area(
+        "Acceptance Criteria",
+        value=user_story_model.acceptance_criteria,
+        key="acceptance_criteria_content",
+        height=300,
+        disabled=not user_story_id,
+        placeholder="please input" if user_story_id else "need user story",
+    )
+    ac_warning_container = st.empty()
+    if acceptance_criteria != user_story_model.acceptance_criteria:
+        ac_warning_container.warning('unsaved', icon="ℹ")
+
+    business_ctx = st.text_area(
+        "Business Context",
+        value=user_story_model.business_ctx,
+        key="business_ctx_content",
+        height=300,
+        # on_change=on_change_user_business_ctx,
+    )
+    bc_warning_container = st.empty()
+    if business_ctx != user_story_model.business_ctx:
+        bc_warning_container.warning('unsaved', icon="ℹ")
+    button_save_business_ctx_clicked = st.button("保存", key="button_save_business_ctx")
+
+    # function
+    @st.experimental_dialog("new user story")
+    def dialog_add_user_story(content=""):
+        user_story_title = st.text_input("title")
+        if st.button("Submit"):
+            new_user_story_model = UserStoryModel(
+                title=user_story_title,
+                content=content,
+                business_ctx=user_story_model.business_ctx,
+            ).save()
+            st.session_state["selectbox_user_story_id"] = new_user_story_model.id
+            # st.session_state[KEY_USER_STORY_ID] = new_user_story_model.id
+            st.rerun()
+
+    @st.experimental_dialog(f"delete user story")
+    def dialog_delete_user_story():
+        del_model = UserStoryModel.get(user_story_id)
+        st.write(f"delete {del_model.title}")
+        dialog_left_column, dialog_right_column = st.columns(2)
+        if dialog_left_column.button("Confirm", type="primary"):
+            del_model.delete()
+            del st.session_state[KEY_USER_STORY_ID]
+            st.rerun()
+        if dialog_right_column.button("Cancel"):
+            st.rerun()
+
+    if button_add_clicked:
+        dialog_add_user_story()
+    if button_save_clicked:
+        user_story_model.content = user_story
+        user_story_model.acceptance_criteria = acceptance_criteria
+        user_story_model.save()
+        us_warning_container.info('save success', icon="🎉")
+        ac_warning_container.info('save success', icon="🎉")
+        # us_warning_container.empty()
+        # st.toast('save success', icon='🎉')
+    if button_delete_clicked:
+        dialog_delete_user_story()
+    if button_save_business_ctx_clicked:
+        # TODO
+        for model in UserStoryModel.list():
+            model.business_ctx = business_ctx
+            model.save()
+        bc_warning_container.info('save success', icon="🎉")
+
 
 with left_column:
     with st.container(border=border, height=1100):

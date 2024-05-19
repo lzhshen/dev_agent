@@ -11,19 +11,33 @@ from const import KEY_USER_STORY_ID
 from models import UserStoryModel
 from utils import *
 
-ddd_dict_template = """用户故事
+ddd_model_template = """业务描述
+=======
+{context}
+
+用户故事
 ======
 {story}
 
+领域模型
+======
+```mermaid
+{model}
+```
+
+======
+
+系统中涉及概念的glossary如下：
+{glossary}
+
 任务
-===
-请根据用户故事中描述的业务场景，提取其中的业务概念，并给出每个概念的定义。
-结果以表格形式给出。
+====
+根据业务描述，为系统建立模型。可以添加你认为必要的实体和关系。并将模型表示为mermaid的class diagram
 """
 
 # app config
-st.set_page_config(page_title="Streaming bot", page_icon="🤖", layout="wide")
-st.title("Streaming bot")
+st.set_page_config(page_title="领域模型", page_icon="🤖", layout="wide")
+st.title("领域模型")
 
 log = get_logger(__name__)
 log.info("###################### st.rerun ######################")
@@ -83,9 +97,9 @@ with right_column:
     st.session_state[KEY_USER_STORY_ID] = user_story_id
     user_story_model = UserStoryModel.get_or_create(user_story_id)
 
-    ddd_dict = st.text_area(
-        label="DDD Dict",
-        value=user_story_model.ddd_dict,
+    ddd_model = st.text_area(
+        label="DDD Model",
+        value=user_story_model.ddd_model,
         # disabled=True,
         height=300,
         disabled=not user_story_id,
@@ -93,20 +107,30 @@ with right_column:
         # label_visibility="collapsed",
     )
     empty_warning = st.empty()
-    if ddd_dict != user_story_model.ddd_dict:
+    if ddd_model != user_story_model.ddd_model:
         empty_warning.warning('unsaved', icon="ℹ")
 
-    button_save_ddd_dict_clicked = st.button(
+    button_save_ddd_model_clicked = st.button(
         "保存",
-        key="button_save_ddd_dict",
+        key="button_save_ddd_model",
         disabled=not user_story_id,
     )
-    if button_save_ddd_dict_clicked:
-        user_story_model.ddd_dict = ddd_dict
+    if button_save_ddd_model_clicked:
+        user_story_model.ddd_model = ddd_model
         user_story_model.save()
         empty_warning.info('save success', icon="🎉")
         # empty_warning.empty()
         # st.toast('save success', icon='🎉')
+
+    ddd_glossary = st.text_area(
+        label="DDD Glossary",
+        value=user_story_model.ddd_glossary,
+        # disabled=True,
+        height=300,
+        disabled=not user_story_id,
+        placeholder="please input" if user_story_id else "need user story",
+        # label_visibility="collapsed",
+    )
 
     user_story = st.text_area(
         "User Story",
@@ -119,6 +143,23 @@ with right_column:
         # label_visibility="collapsed",
     )
 
+    business_ctx = st.text_area(
+        "Business Context",
+        value=user_story_model.business_ctx,
+        key="business_ctx_content",
+        height=300,
+        # on_change=on_change_user_business_ctx,
+    )
+    # bc_warning_container = st.empty()
+    # if business_ctx != user_story_model.business_ctx:
+    #     bc_warning_container.warning('unsaved', icon="ℹ")
+    # button_save_business_ctx_clicked = st.button("保存", key="button_save_business_ctx")
+    # if button_save_business_ctx_clicked:
+    #     # TODO
+    #     for model in UserStoryModel.list():
+    #         model.business_ctx = business_ctx
+    #         model.save()
+    #     bc_warning_container.info('save success', icon="🎉")
 
 with left_column:
     with st.container(border=border, height=1100):
@@ -149,9 +190,12 @@ with left_column:
 
             with st.chat_message("AI"):
                 response = st.write_stream(get_response(
-                    template=ddd_dict_template,
+                    template=ddd_model_template,
                     is_interactive=is_interactive,
                     input=user_query,
                     story=user_story,
+                    context=business_ctx,
+                    model=ddd_model,
+                    glossary=ddd_glossary,
                 ))
             st.session_state.ddd_chat_history.append(AIMessage(content=response))

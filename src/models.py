@@ -127,7 +127,7 @@ class UserStoryModel(BaseModel):
     content: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default="")
     business_ctx: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default="")
     acceptance_criteria: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default="")
-    ddd_dict: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default="")
+    ddd_glossary: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default="")
     ddd_model: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default="")
     tdd_task: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default="")
     tdd_code: Mapped[Optional[str]] = mapped_column(Text, nullable=False, default="")

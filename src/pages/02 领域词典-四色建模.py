@@ -41,15 +41,15 @@ database.init_database()
 
 
 # Initialize chat history
-if "ddd_chat_history" not in st.session_state:
-    st.session_state.ddd_chat_history = []
+if "ddd_glossary_chat_history" not in st.session_state:
+    st.session_state.ddd_glossary_chat_history = []
     border = False
 else:
     border = True
 
 # session state
-if "ddd_chat_history" not in st.session_state:
-    st.session_state.ddd_chat_history = [
+if "ddd_glossary_chat_history" not in st.session_state:
+    st.session_state.ddd_glossary_chat_history = [
         AIMessage(content="Hello, I am a bot. How can I help you?"),
     ]
     border = False
@@ -127,7 +127,7 @@ with right_column:
 with left_column:
     with st.container(border=border, height=1100):
         # conversation
-        for message in st.session_state.ddd_chat_history:
+        for message in st.session_state.ddd_glossary_chat_history:
             if isinstance(message, AIMessage):
                 with st.chat_message("AI"):
                     st.write(message.content)
@@ -146,7 +146,7 @@ with left_column:
             float_parent(css=button_css)
 
         if user_query is not None and user_query != "":
-            st.session_state.ddd_chat_history.append(HumanMessage(content=user_query))
+            st.session_state.ddd_glossary_chat_history.append(HumanMessage(content=user_query))
 
             with st.chat_message("Human"):
                 st.markdown(user_query)
@@ -158,4 +158,4 @@ with left_column:
                     input=user_query,
                     story=user_story,
                 ))
-            st.session_state.ddd_chat_history.append(AIMessage(content=response))
+            st.session_state.ddd_glossary_chat_history.append(AIMessage(content=response))

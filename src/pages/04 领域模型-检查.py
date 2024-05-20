@@ -11,28 +11,24 @@ from const import KEY_USER_STORY_ID
 from models import UserStoryModel
 from utils import *
 
-ddd_model_template = """业务描述
-=======
-{context}
-
-用户故事
-======
-{story}
-
-领域模型
+ddd_model_template = """领域模型
 ======
 ```mermaid
 {model}
 ```
 
+用户故事
 ======
+{story}
 
-系统中涉及概念的glossary如下：
-{glossary}
+验收场景
+======
+{ac}
 
 任务
-====
-根据业务描述，为系统建立模型。可以添加你认为必要的实体和关系。并将模型表示为mermaid的class diagram
+===
+针对这个用户故事和验收场景，领域模型中缺少哪些概念？或者存在哪些不正确的关联关系。
+请用文字表示缺失的概念是什么？以及存在哪些不正确的关联。
 """
 
 # app config
@@ -122,15 +118,27 @@ with right_column:
         # empty_warning.empty()
         # st.toast('save success', icon='🎉')
 
-    ddd_glossary = st.text_area(
-        label="DDD Glossary",
-        value=user_story_model.ddd_glossary,
-        # disabled=True,
+    # ddd_glossary = st.text_area(
+    #     label="DDD Glossary",
+    #     value=user_story_model.ddd_glossary,
+    #     # disabled=True,
+    #     height=300,
+    #     disabled=not user_story_id,
+    #     placeholder="please input" if user_story_id else "need user story",
+    #     # label_visibility="collapsed",
+    # )
+
+    acceptance_criteria = st.text_area(
+        "Acceptance Criteria",
+        value=user_story_model.acceptance_criteria,
+        key="acceptance_criteria_content",
         height=300,
         disabled=not user_story_id,
         placeholder="please input" if user_story_id else "need user story",
-        # label_visibility="collapsed",
     )
+    # ac_warning_container = st.empty()
+    # if acceptance_criteria != user_story_model.acceptance_criteria:
+    #     ac_warning_container.warning('unsaved', icon="ℹ")
 
     user_story = st.text_area(
         "User Story",
@@ -196,6 +204,7 @@ with left_column:
                     story=user_story,
                     context=business_ctx,
                     model=ddd_model,
-                    glossary=ddd_glossary,
+                    glossary=acceptance_criteria,
+                    ac=user_story_model.acceptance_criteria,
                 ))
             st.session_state.ddd_model_chat_history.append(AIMessage(content=response))

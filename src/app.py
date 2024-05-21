@@ -1,12 +1,6 @@
-import os
-
-import streamlit
 from streamlit.logger import get_logger
 from langchain_core.messages import AIMessage, HumanMessage
-from langchain_openai import ChatOpenAI
-from langchain_community.llms import Tongyi
 from dotenv import load_dotenv
-from langchain_core.prompts import ChatPromptTemplate
 from streamlit_float import *
 
 import database
@@ -63,44 +57,6 @@ load_dotenv()
 database.init_database()
 
 
-def get_response(user_query, chat_history, user_story, business_ctx, is_interactive=True):
-    if "DASHSCOPE_API_KEY" in os.environ:
-        llm_chat = Tongyi
-        llm_model_name = "qwen1.5-0.5b-chat"  # 通义千问1.5对外开源的0.5B规模参数量是经过人类指令对齐的chat模型
-        # llm_model_name = "qwen1.5-110b-chat"  # 通义千问1.5对外开源的110B规模参数量是经过人类指令对齐的chat模型
-        # llm_model_name = "baichuan-7b-v1"  # 由百川智能开发的一个开源的大规模预训练模型，70亿参数，支持中英双语，上下文窗口长度为4096。
-        # llm_model_name = "baichuan2-13b-chat-v1"  # 由百川智能开发的一个开源的大规模预训练模型，130亿参数，支持中英双语，上下文窗口长度为4096。
-        # llm_model_name = "llama3-8b-instruct"  # Llama3系列是Meta在2024年4月18日公开发布的大型语言模型（LLMs），llama3-8B拥有80亿参数，模型最大输入为6500，最大输出为1500，仅支持message格式，限时免费调用。
-        # llm_model_name = "ziya-llama-13b-v1"  # 姜子牙通用大模型由IDEA研究院认知计算与自然语言研究中心主导开源，具备翻译、编程、文本分类、信息抽取、摘要、文案生成、常识问答和数学计算等能力。
-        # llm_model_name = "chatyuan-large-v2"  # ChatYuan模型是由元语智能出品的大规模语言模型，它在灵积平台上的模型名称为"chatyuan-large-v2"。ChatYuan-large-v2是一个支持中英双语的功能型对话语言大模型，是继ChatYuan系列中ChatYuan-large-v1开源后的又一个开源模型。
-
-        # llm_model_name = st.session_state.llm_model_name
-
-    # elif "OPENAI_API_KEY" in os.environ:
-    else:
-        llm_chat = ChatOpenAI
-        llm_model_name = "gpt-4-turbo-preview"
-
-    if is_interactive:
-        llm = llm_chat(temperature=0.0, model=llm_model_name, model_kwargs={"stop": "\nAnswer"})
-    else:
-        llm = llm_chat(temperature=0.0, model=llm_model_name)
-    # output_parser = StrOutputParser()
-    output_parser = MyStrOutputParser()
-    prompt = ChatPromptTemplate.from_template(user_story_template)
-    chain = prompt | llm | output_parser
-
-    stream = chain.stream(
-        {
-            "input": user_query,
-            "history": chat_history,
-            "story": user_story,
-            "context": business_ctx,
-        }
-    )
-    return stream
-
-
 # Initialize chat history
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
@@ -121,7 +77,8 @@ left_column, right_column = st.columns(2)
 with right_column:
     user_story_model_list: List[UserStoryModel] = UserStoryModel.list()
     user_story_selectbox_options = [user_story_model.id for user_story_model in user_story_model_list]
-    if "selectbox_user_story_id" in st.session_state and st.session_state["selectbox_user_story_id"] in user_story_selectbox_options:
+    if "selectbox_user_story_id" in st.session_state and \
+            st.session_state["selectbox_user_story_id"] in user_story_selectbox_options:
         user_story_id = st.session_state["selectbox_user_story_id"]
         user_story_selectbox_index = user_story_selectbox_options.index(user_story_id)
     elif KEY_USER_STORY_ID in st.session_state and st.session_state[KEY_USER_STORY_ID] in user_story_selectbox_options:
@@ -132,7 +89,7 @@ with right_column:
         user_story_id = user_story_selectbox_options[0]
     else:
         user_story_selectbox_index = 0
-        user_story_id =  None
+        user_story_id = None
 
     # if user_story_selectbox_options:
     #     user_story_model = user_story_model_list[user_story_selectbox_index]
@@ -143,12 +100,14 @@ with right_column:
 
     def on_change_user_story_list():
         global user_story_id, user_story_model
-        log.debug(f"on change user_story_id={user_story_id} session={st.session_state.get(KEY_USER_STORY_ID)} select={st.session_state.get('selectbox_user_story_id')}")
+        log.debug(f"on change user_story_id={user_story_id} session={st.session_state.get(KEY_USER_STORY_ID)} "
+                  f"select={st.session_state.get('selectbox_user_story_id')}")
         # user_story_id = st.session_state.get('selectbox_user_story_id')
         # user_story_model = UserStoryModel.get_or_create(user_story_id)
         # st.session_state[KEY_USER_STORY_ID] = st.session_state.get('selectbox_user_story_id')
 
-    log.debug(f"before user_story_id={user_story_id} session={st.session_state.get(KEY_USER_STORY_ID)} select={st.session_state.get('selectbox_user_story_id')}")
+    log.debug(f"before user_story_id={user_story_id} session={st.session_state.get(KEY_USER_STORY_ID)} "
+              f"select={st.session_state.get('selectbox_user_story_id')}")
 
     user_story_id = st.selectbox(
         label="User Story List",
@@ -162,7 +121,8 @@ with right_column:
     st.session_state[KEY_USER_STORY_ID] = st.session_state.get('selectbox_user_story_id')
     user_story_model = UserStoryModel.get_or_create(user_story_id)
     log.debug(f"{user_story_model.id=} {user_story_model.title}")
-    log.debug(f"after user_story_id={user_story_id} session={st.session_state.get(KEY_USER_STORY_ID)} select={st.session_state.get('selectbox_user_story_id')}")
+    log.debug(f"after user_story_id={user_story_id} session={st.session_state.get(KEY_USER_STORY_ID)} "
+              f"select={st.session_state.get('selectbox_user_story_id')}")
 
     user_story = st.text_area(
         "User Story",
@@ -285,7 +245,6 @@ with left_column:
                     st.write(message.content)
 
         # user input
-        user_query = ''
         with st.container():
             is_interactive = st.checkbox("交互对话模式", value=False)
 
@@ -318,8 +277,13 @@ with left_column:
                 st.markdown(user_query)
 
             with st.chat_message("AI"):
-                # response = st.write_stream(get_response(user_query, st.session_state.chat_history, right_column.user_story, right_column.business_ctx))
-                response = st.write_stream(get_response(user_query, st.session_state.chat_history, user_story, business_ctx, is_interactive))
+                response = st.write_stream(get_response(
+                    template=user_story_template,
+                    input=user_query,
+                    history=st.session_state.chat_history,
+                    story=user_story,
+                    context=business_ctx,
+                    is_interactive=is_interactive,
+                ))
 
             st.session_state.chat_history.append(AIMessage(content=response))
-

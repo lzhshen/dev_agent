@@ -1,6 +1,3 @@
-import os
-
-import streamlit
 from streamlit.logger import get_logger
 from langchain_core.messages import AIMessage, HumanMessage
 from dotenv import load_dotenv
@@ -17,8 +14,16 @@ ddd_glossary_template = """用户故事
 
 概念提取的方法
 ============
-在使用四色法建模时，我们将使用 4 个基本原型（Archetype）：'Moment-interval'、'role'、'party-place-thing' 和 'description'。 在这四个原型中，最重要的原型是 moment-interval，也就是某个时间或是一段时间。它代表的是出于业务或法律原因需要记录和跟踪的事情，是在某个时间或时间段内发生的事情。它帮助提醒我们在问题领域中寻找重要的时刻或时间段。 比如，销售（Sale）是在某一时刻进行的（moment），这里重要的信息是销售的日期和时间；比如，租赁（Rental）则发生在一段时间内，这个时间段就是从支付（checkout）到归还（return）；比如，预订（Reservation）也是发生在一段时间内，这个时间段就是预订到使用、取消或过期。 第二个重要原型是 role，也就是角色。角色是人、地点或事物（party-place-thing）以何种方式参与到 moment-interval 中。 比如，在销售（Sale）中，就会存在买家 (buyer) 和卖家 (seller) 两种角色。 第三个原型是 party-place-thing，是扮演不同 role 的人（个人或组织）、地点或事物。 第四个原型是 description，它是一种类似于目录条目的值对象，用以描述 party-place-thing 的具体数据。
-使用四色法建模时，步骤如下： 首先需要寻找系统中的 moment-interval，并梳理与它前后关联的其他 moment-interval。比如，支付（payment）作为一个 moment-interval，可能存在前置的 moment-interval 对象订单（order）然后寻找参与到 moment-interval 中的 role之后再寻找可以扮演这些 role 的 party-place-thing最后寻找 description 对象
+在使用四色法建模时，我们将使用 4 个基本原型（Archetype）：'Moment-interval'、'role'、'party-place-thing' 和 'description'。
+在这四个原型中，最重要的原型是 moment-interval，也就是某个时间或是一段时间。它代表的是出于业务或法律原因需要记录和跟踪的事情，是在某个时间或时间段内发生的事情。它帮助提醒我们在问题领域中寻找重要的时刻或时间段。 
+比如，销售（Sale）是在某一时刻进行的（moment），这里重要的信息是销售的日期和时间；比如，租赁（Rental）则发生在一段时间内，这个时间段就是从支付（checkout）到归还（return）；
+比如，预订（Reservation）也是发生在一段时间内，这个时间段就是预订到使用、取消或过期。 
+第二个重要原型是 role，也就是角色。角色是人、地点或事物（party-place-thing）以何种方式参与到 moment-interval 中。
+比如，在销售（Sale）中，就会存在买家 (buyer) 和卖家 (seller) 两种角色。 
+第三个原型是 party-place-thing，是扮演不同 role 的人（个人或组织）、地点或事物。 
+第四个原型是 description，它是一种类似于目录条目的值对象，用以描述 party-place-thing 的具体数据。
+使用四色法建模时，步骤如下： 首先需要寻找系统中的 moment-interval，并梳理与它前后关联的其他 moment-interval。
+比如，支付（payment）作为一个 moment-interval，可能存在前置的 moment-interval 对象订单（order）然后寻找参与到 moment-interval 中的 role之后再寻找可以扮演这些 role 的 party-place-thing最后寻找 description 对象
 
 任务
 ===
@@ -60,7 +65,8 @@ left_column, right_column = st.columns(2)
 with right_column:
     user_story_model_list: List[UserStoryModel] = UserStoryModel.list()
     user_story_selectbox_options = [user_story_model.id for user_story_model in user_story_model_list]
-    if "selectbox_user_story_id" in st.session_state and st.session_state["selectbox_user_story_id"] in user_story_selectbox_options:
+    if "selectbox_user_story_id" in st.session_state and \
+            st.session_state["selectbox_user_story_id"] in user_story_selectbox_options:
         user_story_id = st.session_state["selectbox_user_story_id"]
         user_story_selectbox_index = user_story_selectbox_options.index(user_story_id)
     elif KEY_USER_STORY_ID in st.session_state and st.session_state[KEY_USER_STORY_ID] in user_story_selectbox_options:

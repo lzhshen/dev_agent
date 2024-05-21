@@ -1,6 +1,3 @@
-import os
-
-import streamlit
 from streamlit.logger import get_logger
 from langchain_core.messages import AIMessage, HumanMessage
 from dotenv import load_dotenv
@@ -70,7 +67,8 @@ left_column, right_column = st.columns(2)
 with right_column:
     user_story_model_list: List[UserStoryModel] = UserStoryModel.list()
     user_story_selectbox_options = [user_story_model.id for user_story_model in user_story_model_list]
-    if "selectbox_user_story_id" in st.session_state and st.session_state["selectbox_user_story_id"] in user_story_selectbox_options:
+    if "selectbox_user_story_id" in st.session_state and \
+            st.session_state["selectbox_user_story_id"] in user_story_selectbox_options:
         user_story_id = st.session_state["selectbox_user_story_id"]
         user_story_selectbox_index = user_story_selectbox_options.index(user_story_id)
     elif KEY_USER_STORY_ID in st.session_state and st.session_state[KEY_USER_STORY_ID] in user_story_selectbox_options:

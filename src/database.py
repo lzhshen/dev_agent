@@ -61,9 +61,6 @@ def create_table():
     fake_data = st.secrets.get("fake_data")
     log.debug(f"create_table reset_table={reset_table} fake_data={fake_data}")
 
-    # engine = conn.engine
-    # session = conn.session
-
     from models import BaseModel
     if reset_table:
         BaseModel.metadata.drop_all(bind=engine)
@@ -77,33 +74,17 @@ def create_table():
     return
 
 
-def generate_fake_business_ctx():
-    from models import BusinessCtxModel
-    business_ctx_model = BusinessCtxModel(
-        title=f"业务背景",
-        content="整个学籍管理系统是一个 Web 应用； 当教职员工发放录取通知时，会同步建立学生的账号；学生可以根据身份信息，查询自己的账号；在报道注册时，学生登录账号，按照录取通知书完成学年的注册；",
-    )
-    return business_ctx_model.save()
-
-
-def generate_fake_user_story(business_ctx_id):
+def generate_fake_data():
     from models import UserStoryModel
-    user_story_model = UserStoryModel(
-        business_ctx_id=business_ctx_id,
-        title=f"获取学位的进度",
-        content="""作为学校的教职员工（As a faculty），
-我希望学生可以根据录取通知将学籍注册到教学计划上（I want the student to be able to enroll in an academic program with given offer），
-从而我可以跟踪他们的获取学位的进度（So that I can track their progress）""",
-    )
-    return user_story_model.save()
 
-
-def generate_fake_acceptance_criteria(user_story_id):
-    from models import AcceptanceCriteriaModel
-    AcceptanceCriteriaModel(
-        user_story_id=user_story_id,
-        title=f"验收标准",
-        content=f"""1. 场景1：正常注册
+    user_story_model = UserStoryModel()
+    user_story_model.title = "获取学位的进度"
+    user_story_model.content = """作为学校的教职员工（As a faculty），
+# 我希望学生可以根据录取通知将学籍注册到教学计划上（I want the student to be able to enroll in an academic program with given offer），
+# 从而我可以跟踪他们的获取学位的进度（So that I can track their progress）"""
+    user_story_model.business_ctx = "整个学籍管理系统是一个 Web 应用； 当教职员工发放录取通知时，会同步建立学生的账号；" \
+                                    "学生可以根据身份信息，查询自己的账号；在报道注册时，学生登录账号，按照录取通知书完成学年的注册；"
+    user_story_model.acceptance_criteria = """1. 场景1：正常注册
 Given: 学生收到电子录取通知，上面有学号和登录信息
 When: 学生使用学号和身份信息登录学籍管理系统
 Then: 系统显示注册页面，学生按照录取通知完成注册，系统自动关联学生信息
@@ -117,15 +98,16 @@ Then: 系统验证通过，学生继续完成注册流程
 Given: 教职员工登录系统进入学生管理界面
 When: 教职员工搜索或选择特定学生
 Then: 系统显示该学生的课程进度、成绩和毕业要求完成情况，教职工可追踪学生学习进度
-""",
-    ).save()
-    return
-
-
-def generate_fake_data():
-    business_ctx_model = generate_fake_business_ctx()
-    user_story = generate_fake_user_story(business_ctx_model.id)
-    generate_fake_acceptance_criteria(user_story.id)
+"""
+    user_story_model.ddd_glossary = """业务概念	定义
+教职员工	在学校中负责教学和管理工作的人员，包括教师、辅导员等
+录取通知	学校向被录取的学生发出的正式文件，确认其已被接受进入特定学术项目
+学生	参与学校教育活动，正在获取学位或证书的学习者
+学籍注册	学生正式加入学校并被记录在特定学术项目中的过程
+教学计划	学校为学生制定的课程和学习要求，指导他们完成学位的路径
+学位	由学校颁发的证明学生已完成特定学术课程并达到要求的证书
+进度跟踪	监控和记录学生在学术项目中完成课程和达到学习目标的过程"""
+    return user_story_model.save()
 
 
 def test_case():

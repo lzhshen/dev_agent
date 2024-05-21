@@ -4,6 +4,15 @@ MODEL_STATUS = (
     STATUS_DELETE,
 ) = range(2)
 
+
+# text status
+TEXT_STATUS = (
+    TEXT_STATUS_INIT,
+    TEXT_STATUS_CHANGE,
+    TEXT_STATUS_SAVE,
+) = range(3)
+
+
 # st.session_state key
 KEY_DB_CONN = "db_conn"
 KEY_DB_ENGINE = "db_engine"

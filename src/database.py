@@ -92,6 +92,15 @@ def generate_fake_data():
     for title, content in user_story_fake_data.items():
         user_story_model = UserStoryModel()
         user_story_model.title = title
+        user_story_model.ddd_glossary = """概念	定义	Archetype
+学生注册验证	教职员工核实学生注册信息的过程，确保符合资格并处理异常情况。	Moment-interval
+学生	参与注册验证过程的个人，通常是高等教育机构的在读或申请就读的学生。	Party-place-thing (Role: 学生)
+教职员工	负责验证学生注册信息的教职工，可能包括教务人员、辅导员等。	Party-place-thing (Role: 教职员工)
+注册信息	包含学生个人信息、学术资格、课程选择等用于验证的详细数据。	Description
+学生资格	学生满足继续学业或入学所需的一系列条件，如年龄、学历、考试成绩等。	Description
+异常情况	在验证过程中发现的问题，如信息不一致、资格不符等，需要处理的情况。	Moment-interval
+注册时段	学生可以提交注册信息的时间段，通常在学年开始前设定。	Moment-interval
+验证结果	验证过程后的决定，可能是合格、不合格或其他特殊状态。	Description"""
         user_story_model.content = content
         user_story_model.business_ctx = business_ctx
         user_story_model.save()
@@ -125,6 +134,60 @@ Then: 系统显示该学生的课程进度、成绩和毕业要求完成情况�
 教学计划	学校为学生制定的课程和学习要求，指导他们完成学位的路径
 学位	由学校颁发的证明学生已完成特定学术课程并达到要求的证书
 进度跟踪	监控和记录学生在学术项目中完成课程和达到学习目标的过程"""
+    user_story_model.ddd_model = """classDiagram
+    class Faculty{
+        - id: int
+        - name: string
+        - role: string
+        + issueAdmissionNotice(student: Student, program: AcademicProgram)
+    }
+
+    class Student{
+        - id: int
+        - name: string
+        - identityInfo: IdentityInfo
+        + createAccount()
+        + enroll(program: AcademicProgram, notice: AdmissionNotice)
+        + checkProgress()
+    }
+
+    class AdmissionNotice{
+        - id: int
+        - program: AcademicProgram
+        - issuedBy: Faculty
+        + details(): string
+    }
+
+    class AcademicProgram{
+        - id: int
+        - name: string
+        - requirements: Course[]
+        + register(student: Student)
+    }
+
+    class Course{
+        - id: int
+        - name: string
+        - credits: int
+        + isCompleted(student: Student): bool
+    }
+
+    class ProgressTracking{
+        - student: Student
+        - program: AcademicProgram
+        - completedCourses: Course[]
+        + updateProgress()
+        + viewProgress(): string
+    }
+
+    Faculty --> AdmissionNotice
+    AdmissionNotice --> Student
+    Student --> AcademicProgram
+    AcademicProgram --> Course
+    Student --> ProgressTracking
+    ProgressTracking --> AcademicProgram
+    ProgressTracking --> Course
+"""
     return user_story_model.save()
 
 

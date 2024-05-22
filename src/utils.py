@@ -68,42 +68,146 @@ def format_diagram(class_diagram):
     return format_class_diagram
 
 
-def show_diagram(class_diagram, iframe_index):
-    from time import sleep
+# def show_diagram(class_diagram, iframe_index=2):
+#     from time import sleep
+#     import streamlit as st
+#     from streamlit.logger import get_logger
+#     from streamlit.components.v1 import html
+#     from streamlit_js_eval import streamlit_js_eval
+#     log = get_logger(__name__)
+#
+#     if "svg_height" not in st.session_state:
+#         st.session_state["svg_height"] = 200
+#
+#     if "previous_mermaid" not in st.session_state:
+#         st.session_state["previous_mermaid"] = ""
+#
+#     def mermaid(code: str) -> None:
+#         html(
+#             f"""
+# <p id="mermaidError"></p>
+# <!-- htmlmin:ignore -->
+# <pre class="myMermaidClass">
+#     {code}
+# </pre>
+# <!-- htmlmin:ignore -->
+#
+# <script type="module">
+#     //import mermaid from '/app/static/mermaid@9.3.0.min.js';
+#     import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+#     /*mermaid.initialize({{
+#         startOnLoad: true,
+#         logLevel: 5,
+#         securityLevel: 'loose',
+#         arrowMarkerAbsolute: true
+#     }});*/
+#     mermaid.initialize({{ logLevel: 5, startOnLoad: false }});
+#     try {{
+#         await mermaid.run({{
+#           querySelector: '.myMermaidClass',
+#         }});
+#     }}
+#     catch(err) {{
+#         document.getElementById("mermaidError").innerHTML = err.message;
+#     }}
+# </script>
+# """,
+#             height=st.session_state["svg_height"] + 50,
+#         )
+#         # st.write(st.session_state["svg_height"])
+#
+#     format_class_diagram = format_diagram(class_diagram)
+#     mermaid(format_class_diagram)
+#
+#     if format_class_diagram != st.session_state["previous_mermaid"] or True:
+#         st.session_state["previous_mermaid"] = format_class_diagram
+#         sleep(1)
+#         streamlit_js_eval(
+#             js_expressions=f'parent.document.getElementsByTagName("iframe")[{iframe_index}].contentDocument.getElementsByClassName("mermaid")[0].getElementsByTagName("svg")[0].getBBox().height',
+#             key="svg_height",
+#         )
+#         # st.toast(st.session_state["svg_height"])
+#         log.info(f'svg_height={st.session_state["svg_height"]}')
+
+
+def show_diagram(class_diagram):
     import streamlit as st
     from streamlit.components.v1 import html
-    from streamlit_js_eval import streamlit_js_eval
+
+    pre_class = "mermaid"
+    # pre_class = "myMermaidClass"
+    format_class_diagram = format_diagram(class_diagram)
 
     if "svg_height" not in st.session_state:
         st.session_state["svg_height"] = 200
 
     if "previous_mermaid" not in st.session_state:
         st.session_state["previous_mermaid"] = ""
-
-    def mermaid(code: str) -> None:
-        html(
-            f"""
-            <pre class="mermaid">
-                {code}
-            </pre>
-
-            <script type="module">
-                import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-                mermaid.initialize({{ startOnLoad: true }});
-            </script>
-            """,
-            height=st.session_state["svg_height"] + 50,
-        )
-        # st.write(st.session_state["svg_height"])
-
-    format_class_diagram = format_diagram(class_diagram)
-    mermaid(format_class_diagram)
-
-    if format_class_diagram != st.session_state["previous_mermaid"]:
-        st.session_state["previous_mermaid"] = format_class_diagram
-        sleep(1)
-        streamlit_js_eval(
-            js_expressions=f'parent.document.getElementsByTagName("iframe")[{iframe_index}].contentDocument.getElementsByClassName("mermaid")[0].getElementsByTagName("svg")[0].getBBox().height',
-            key="svg_height",
-        )
-        # st.write(st.session_state["svg_height"])
+    font_size = st.slider("Mermaid font size", 10, 30, 18)
+    html(
+        """<p id="mermaidError"></p>
+        <!-- htmlmin:ignore -->
+        <pre class="%s">
+            %s
+        </pre>
+        <!-- htmlmin:ignore -->
+        
+        <script type="module">
+            //import mermaid from '/app/static/mermaid@9.3.0.min.js';
+            import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+            mermaid.initialize({
+                startOnLoad: true,
+                logLevel: 5,
+                securityLevel: 'loose',
+                arrowMarkerAbsolute: true,
+                themeVariables: { fontSize: "%spx" }
+            });
+            try {
+                await mermaid.run({
+                  querySelector: '.%s',
+                });
+            }
+            catch(err) {
+                document.getElementById("mermaidError").innerHTML = err.message;
+            }
+        
+        function adjustIframeHeight(iframe) {
+            try {
+                var iframeDoc = iframe.contentDocument;
+                var mermaidElement = iframeDoc.getElementsByClassName("%s")[0];
+        
+                if (mermaidElement) {
+                    var svgElement = mermaidElement.getElementsByTagName("svg")[0];
+                    if (svgElement) {
+                        var bbox = svgElement.getBBox();
+                        iframe.style.height = (bbox.height + 50) + "px";
+                    }
+                }
+            } catch (e) {
+                console.error("Error adjusting iframe height: ", e);
+            }
+        }
+        
+        function observeIframe(iframe) {
+            var observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    adjustIframeHeight(iframe);
+                });
+            });
+        
+            try {
+                var config = { attributes: true, childList: true, subtree: true };
+                observer.observe(iframe.contentDocument, config);
+            } catch (e) {
+                console.error("Error observing iframe: ", e);
+            }
+        }
+        
+        var iframes = parent.document.getElementsByTagName("iframe");
+        for (var i = 0; i < iframes.length; i++) {
+            observeIframe(iframes[i]);
+        }
+        </script>
+        """ % (pre_class, format_class_diagram, font_size, pre_class, pre_class)
+    )
+    return

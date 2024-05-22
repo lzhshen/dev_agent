@@ -88,7 +88,7 @@ class BaseModel(DeclarativeBase):
         if order_by:
             query = query.order_by(order_by)
         else:
-            query = query.order_by(cls.created.desc())
+            query = query.order_by(cls.created.desc(), cls.id.desc())
 
         # result: List[cls] = query.all()
         # return result

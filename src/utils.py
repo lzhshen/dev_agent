@@ -1,4 +1,5 @@
 import os
+import re
 from langchain_openai import ChatOpenAI
 from langchain_community.llms import Tongyi
 from langchain_core.prompts import ChatPromptTemplate
@@ -60,3 +61,49 @@ def get_response(template, is_interactive=True, **kwargs):
 
     stream = chain.stream(kwargs)
     return stream
+
+
+def format_diagram(class_diagram):
+    format_class_diagram = re.sub(r"<(.+?)>", r"~\1~", class_diagram)
+    return format_class_diagram
+
+
+def show_diagram(class_diagram, iframe_index):
+    from time import sleep
+    import streamlit as st
+    from streamlit.components.v1 import html
+    from streamlit_js_eval import streamlit_js_eval
+
+    if "svg_height" not in st.session_state:
+        st.session_state["svg_height"] = 200
+
+    if "previous_mermaid" not in st.session_state:
+        st.session_state["previous_mermaid"] = ""
+
+    def mermaid(code: str) -> None:
+        html(
+            f"""
+            <pre class="mermaid">
+                {code}
+            </pre>
+
+            <script type="module">
+                import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+                mermaid.initialize({{ startOnLoad: true }});
+            </script>
+            """,
+            height=st.session_state["svg_height"] + 50,
+        )
+        # st.write(st.session_state["svg_height"])
+
+    format_class_diagram = format_diagram(class_diagram)
+    mermaid(format_class_diagram)
+
+    if format_class_diagram != st.session_state["previous_mermaid"]:
+        st.session_state["previous_mermaid"] = format_class_diagram
+        sleep(1)
+        streamlit_js_eval(
+            js_expressions=f'parent.document.getElementsByTagName("iframe")[{iframe_index}].contentDocument.getElementsByClassName("mermaid")[0].getElementsByTagName("svg")[0].getBBox().height',
+            key="svg_height",
+        )
+        # st.write(st.session_state["svg_height"])

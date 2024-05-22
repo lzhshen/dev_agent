@@ -76,14 +76,32 @@ def create_table():
 
 def generate_fake_data():
     from models import UserStoryModel
+    user_story_fake_data = {
+        # "教职员工发放录取通知书": "作为 教职员工，我想要 发放录取通知书时同步创建学生的账号，以便 管理和跟踪学生的入学流程。",
+        "学生查询账号": "作为 学生，我想要 使用我的身份信息查询预创建的账号，以便 确认我的入学资格并获取系统访问权限。",
+        "新生登录账号": "作为 新生，我需要 登录我的账号，以便 查看和确认录取通知书上的详细信息。",
+        "学生登录账号": "作为 学生，我想要 在报道注册时登录我的学籍管理系统账号，以便 完成学年的注册流程。",
+        "系统管理员监控账号激活和注册情况": "作为 系统管理员，我想要 监控学生的账号激活和注册情况，以便 确保所有新生都能顺利开始他们的学习旅程。",
+        "教职员工查看学生的注册状态": "作为 教职员工，我想要 能够查看学生的注册状态，以便 追踪哪些学生已经完成注册，哪些学生需要跟进。",
+        "学生更新个人信息": "作为 学生，我想要 在系统中更新我的个人信息，以便 确保学校拥有最新的联系信息。",
+        "教职员工验证学生的注册信息": "作为 教职员工，我需要 能够验证学生的注册信息，以便 核实其资格并处理任何异常情况。",
+    }
+    business_ctx = "整个学籍管理系统是一个 Web 应用； 当教职员工发放录取通知时，会同步建立学生的账号；" \
+                   "学生可以根据身份信息，查询自己的账号；在报道注册时，学生登录账号，按照录取通知书完成学年的注册；"
+
+    for title, content in user_story_fake_data.items():
+        user_story_model = UserStoryModel()
+        user_story_model.title = title
+        user_story_model.content = content
+        user_story_model.business_ctx = business_ctx
+        user_story_model.save()
 
     user_story_model = UserStoryModel()
     user_story_model.title = "获取学位的进度"
     user_story_model.content = """作为学校的教职员工（As a faculty），
 # 我希望学生可以根据录取通知将学籍注册到教学计划上（I want the student to be able to enroll in an academic program with given offer），
 # 从而我可以跟踪他们的获取学位的进度（So that I can track their progress）"""
-    user_story_model.business_ctx = "整个学籍管理系统是一个 Web 应用； 当教职员工发放录取通知时，会同步建立学生的账号；" \
-                                    "学生可以根据身份信息，查询自己的账号；在报道注册时，学生登录账号，按照录取通知书完成学年的注册；"
+    user_story_model.business_ctx = business_ctx
     user_story_model.acceptance_criteria = """1. 场景1：正常注册
 Given: 学生收到电子录取通知，上面有学号和登录信息
 When: 学生使用学号和身份信息登录学籍管理系统

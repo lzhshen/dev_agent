@@ -33,7 +33,8 @@ st.set_page_config(page_title="领域模型", page_icon="🤖", layout="wide")
 st.title("领域模型")
 
 log = get_logger(__name__)
-log.info("###################### st.rerun ######################")
+file_name = os.path.basename(__file__)
+log.info(f"###################### st.rerun {file_name} start ######################")
 
 float_init(theme=True, include_unstable_primary=False)
 
@@ -42,24 +43,6 @@ load_dotenv()
 # `set_page_config()` must be called as the first Streamlit command in your script.
 database.init_database()
 
-
-# Initialize chat history
-file_name = os.path.basename(__file__)
-KEY_CHAT_HISTORY = f"KEY_CHAT_HISTORY_{file_name}"
-if KEY_CHAT_HISTORY not in st.session_state:
-    st.session_state[KEY_CHAT_HISTORY] = []
-    border = False
-else:
-    border = True
-
-# session state
-if KEY_CHAT_HISTORY not in st.session_state:
-    st.session_state[KEY_CHAT_HISTORY] = [
-        AIMessage(content="Hello, I am a bot. How can I help you?"),
-    ]
-    border = False
-else:
-    border = True
 
 left_column, right_column = st.columns(2)
 with right_column:
@@ -170,6 +153,12 @@ with right_column:
     #     bc_warning_container.info('save success', icon="🎉")
 
 with left_column:
+    # Initialize chat history
+    KEY_CHAT_HISTORY = f"KEY_CHAT_HISTORY_{file_name}_{user_story_id}"
+    if KEY_CHAT_HISTORY not in st.session_state:
+        st.session_state[KEY_CHAT_HISTORY] = []
+    border = True
+
     with st.container(border=border, height=1100):
         # conversation
         for message in st.session_state[KEY_CHAT_HISTORY]:
@@ -208,3 +197,5 @@ with left_column:
                     ac=user_story_model.acceptance_criteria,
                 ))
             st.session_state[KEY_CHAT_HISTORY].append(AIMessage(content=response))
+
+log.info(f"###################### st.rerun {file_name} end ######################")

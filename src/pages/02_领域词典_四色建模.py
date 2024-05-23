@@ -35,7 +35,8 @@ st.set_page_config(page_title="领域词典-四色建模", page_icon="🤖", lay
 st.title("领域词典-四色建模")
 
 log = get_logger(__name__)
-log.info("###################### st.rerun ######################")
+file_name = os.path.basename(__file__)
+log.info(f"###################### st.rerun {file_name} start ######################")
 
 float_init(theme=True, include_unstable_primary=False)
 
@@ -133,6 +134,12 @@ with right_column:
 
 
 with left_column:
+    # Initialize chat history
+    KEY_CHAT_HISTORY = f"KEY_CHAT_HISTORY_{file_name}_{user_story_id}"
+    if KEY_CHAT_HISTORY not in st.session_state:
+        st.session_state[KEY_CHAT_HISTORY] = []
+    border = True
+
     with st.container(border=border, height=1100):
         # conversation
         for message in st.session_state[KEY_CHAT_HISTORY]:
@@ -167,3 +174,5 @@ with left_column:
                     story=user_story,
                 ))
             st.session_state[KEY_CHAT_HISTORY].append(AIMessage(content=response))
+
+log.info(f"###################### st.rerun {file_name} end ######################")

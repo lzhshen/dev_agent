@@ -50,24 +50,6 @@ load_dotenv()
 database.init_database()
 
 
-# Initialize chat history
-file_name = os.path.basename(__file__)
-KEY_CHAT_HISTORY = f"KEY_CHAT_HISTORY_{file_name}"
-if KEY_CHAT_HISTORY not in st.session_state:
-    st.session_state[KEY_CHAT_HISTORY] = []
-    border = False
-else:
-    border = True
-
-# session state
-if KEY_CHAT_HISTORY not in st.session_state:
-    st.session_state[KEY_CHAT_HISTORY] = [
-        AIMessage(content="Hello, I am a bot. How can I help you?"),
-    ]
-    border = False
-else:
-    border = True
-
 left_column, right_column = st.columns(2)
 with right_column:
     user_story_model_list: List[UserStoryModel] = UserStoryModel.list()
@@ -174,6 +156,13 @@ with right_column:
     #     bc_warning_container.info('save success', icon="🎉")
 
 with left_column:
+    # Initialize chat history
+    file_name = os.path.basename(__file__)
+    KEY_CHAT_HISTORY = f"KEY_CHAT_HISTORY_{file_name}_{user_story_id}"
+    if KEY_CHAT_HISTORY not in st.session_state:
+        st.session_state[KEY_CHAT_HISTORY] = []
+    border = True
+
     with st.container(border=border, height=1100):
         # conversation
         for message in st.session_state[KEY_CHAT_HISTORY]:
@@ -195,6 +184,16 @@ with left_column:
             float_parent(css=button_css)
 
         if user_query is not None and user_query != "":
+            if not is_interactive:
+                user_query = ddd_model_template.format(
+                    template=ddd_model_template,
+                    is_interactive=is_interactive,
+                    input=user_query,
+                    story=user_story,
+                    context=business_ctx,
+                    model=ddd_model,
+                    glossary=ddd_glossary,
+                )
             st.session_state[KEY_CHAT_HISTORY].append(HumanMessage(content=user_query))
 
             with st.chat_message("Human"):

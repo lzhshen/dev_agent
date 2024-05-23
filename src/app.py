@@ -46,7 +46,8 @@ st.set_page_config(page_title="Streaming bot", page_icon="🤖", layout="wide")
 st.title("Streaming bot")
 
 log = get_logger(__name__)
-log.info("###################### st.rerun ######################")
+file_name = os.path.basename(__file__)
+log.info(f"###################### st.rerun {file_name} start ######################")
 
 float_init(theme=True, include_unstable_primary=False)
 
@@ -55,24 +56,6 @@ load_dotenv()
 # `set_page_config()` must be called as the first Streamlit command in your script.
 database.init_database()
 
-
-# Initialize chat history
-file_name = os.path.basename(__file__)
-KEY_CHAT_HISTORY = f"KEY_CHAT_HISTORY_{file_name}"
-if KEY_CHAT_HISTORY not in st.session_state:
-    st.session_state[KEY_CHAT_HISTORY] = []
-    border = False
-else:
-    border = True
-
-# session state
-if KEY_CHAT_HISTORY not in st.session_state:
-    st.session_state[KEY_CHAT_HISTORY] = [
-        AIMessage(content="Hello, I am a bot. How can I help you?"),
-    ]
-    border = False
-else:
-    border = True
 
 left_column, right_column = st.columns(2)
 with right_column:
@@ -235,6 +218,12 @@ with right_column:
 
 
 with left_column:
+    # Initialize chat history
+    KEY_CHAT_HISTORY = f"KEY_CHAT_HISTORY_{file_name}_{user_story_id}"
+    if KEY_CHAT_HISTORY not in st.session_state:
+        st.session_state[KEY_CHAT_HISTORY] = []
+    border = True
+
     with st.container(border=border, height=1100):
         # conversation
         for message in st.session_state[KEY_CHAT_HISTORY]:
@@ -272,6 +261,15 @@ with left_column:
 
         # if user_query is not None and user_query != "" and st.session_state.llm_model_name:
         if user_query is not None and user_query != "":
+            if not is_interactive:
+                user_query = user_story_template.format(
+                    template=user_story_template,
+                    input=user_query,
+                    history=st.session_state[KEY_CHAT_HISTORY],
+                    story=user_story,
+                    context=business_ctx,
+                    is_interactive=is_interactive,
+                )
             st.session_state[KEY_CHAT_HISTORY].append(HumanMessage(content=user_query))
 
             with st.chat_message("Human"):
@@ -281,7 +279,7 @@ with left_column:
                 response = st.write_stream(get_response(
                     template=user_story_template,
                     input=user_query,
-                    history=st.session_state[KEY_CHAT_HISTORY],
+                    history=st.session_state[KEY_CHAT_HISTORY] if st.session_state[KEY_CHAT_HISTORY] else "",
                     story=user_story,
                     context=business_ctx,
                     is_interactive=is_interactive,
@@ -289,3 +287,4 @@ with left_column:
 
             st.session_state[KEY_CHAT_HISTORY].append(AIMessage(content=response))
 
+log.info(f"###################### st.rerun {file_name} end ######################")

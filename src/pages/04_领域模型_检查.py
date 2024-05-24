@@ -1,5 +1,5 @@
 from streamlit.logger import get_logger
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from dotenv import load_dotenv
 from streamlit_float import *
 
@@ -160,14 +160,27 @@ with left_column:
     border = True
 
     with st.container(border=border, height=1100):
+        KEY_CHAT_INIT = f"KEY_CHAT_INIT_{file_name}"
+        if not st.session_state.get(KEY_CHAT_INIT):
+            st.session_state[KEY_CHAT_INIT] = True
+            system_message = SystemMessage(content=ddd_model_template)
+            # with st.chat_message(system_message.type):
+            #     st.write(system_message.content)
+            st.session_state[KEY_CHAT_HISTORY].append(system_message)
+
         # conversation
         for message in st.session_state[KEY_CHAT_HISTORY]:
-            if isinstance(message, AIMessage):
-                with st.chat_message("AI"):
+            # if isinstance(message, AIMessage):
+            #     with st.chat_message("AI"):
+            #         st.write(message.content)
+            # elif isinstance(message, HumanMessage):
+            #     with st.chat_message("Human"):
+            #         st.write(message.content)
+            with st.chat_message(message.type):
+                if isinstance(message, AIMessage):
                     st.write(message.content)
-            elif isinstance(message, HumanMessage):
-                with st.chat_message("Human"):
-                    st.write(message.content)
+                else:
+                    st.text(message.content)
 
         # user input
         # user_query = ''
@@ -180,10 +193,19 @@ with left_column:
             float_parent(css=button_css)
 
         if user_query is not None and user_query != "":
+            if not is_interactive:
+                user_query = ddd_model_template.format(
+                    input=user_query,
+                    story=user_story,
+                    context=business_ctx,
+                    model=ddd_model,
+                    glossary=acceptance_criteria,
+                    ac=user_story_model.acceptance_criteria,
+                )
             st.session_state[KEY_CHAT_HISTORY].append(HumanMessage(content=user_query))
 
             with st.chat_message("Human"):
-                st.markdown(user_query)
+                st.text(user_query)
 
             with st.chat_message("AI"):
                 response = st.write_stream(get_response(

@@ -1,5 +1,5 @@
 from streamlit.logger import get_logger
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from dotenv import load_dotenv
 from streamlit_float import *
 
@@ -35,7 +35,8 @@ st.set_page_config(page_title="领域词典-四色建模", page_icon="🤖", lay
 st.title("领域词典-四色建模")
 
 log = get_logger(__name__)
-log.info("###################### st.rerun ######################")
+file_name = os.path.basename(__file__)
+log.info(f"###################### st.rerun {file_name} start ######################")
 
 float_init(theme=True, include_unstable_primary=False)
 
@@ -133,31 +134,55 @@ with right_column:
 
 
 with left_column:
+    # Initialize chat history
+    KEY_CHAT_HISTORY = f"KEY_CHAT_HISTORY_{file_name}_{user_story_id}"
+    if KEY_CHAT_HISTORY not in st.session_state:
+        st.session_state[KEY_CHAT_HISTORY] = []
+    border = True
+
     with st.container(border=border, height=1100):
+        KEY_CHAT_INIT = f"KEY_CHAT_INIT_{file_name}"
+        if not st.session_state.get(KEY_CHAT_INIT):
+            st.session_state[KEY_CHAT_INIT] = True
+            system_message = SystemMessage(content=ddd_glossary_template)
+            # with st.chat_message(system_message.type):
+            #     st.write(system_message.content)
+            st.session_state[KEY_CHAT_HISTORY].append(system_message)
+
         # conversation
         for message in st.session_state[KEY_CHAT_HISTORY]:
-            if isinstance(message, AIMessage):
-                with st.chat_message("AI"):
+            # if isinstance(message, AIMessage):
+            #     with st.chat_message("AI"):
+            #         st.write(message.content)
+            # elif isinstance(message, HumanMessage):
+            #     with st.chat_message("Human"):
+            #         st.write(message.content)
+            with st.chat_message(message.type):
+                if isinstance(message, AIMessage):
                     st.write(message.content)
-            elif isinstance(message, HumanMessage):
-                with st.chat_message("Human"):
-                    st.write(message.content)
+                else:
+                    st.text(message.content)
 
         # user input
         # user_query = ''
         with st.container():
             is_interactive = st.checkbox("交互对话模式", value=False)
 
-            user_query = st.chat_input(ddd_glossary_template)
+            user_query = st.chat_input("What is up?")
             button_b_pos = "0rem"
             button_css = float_css_helper(width="2.2rem", bottom=button_b_pos, transition=0)
             float_parent(css=button_css)
 
         if user_query is not None and user_query != "":
+            if not is_interactive:
+                user_query = ddd_glossary_template.format(
+                    input=user_query,
+                    story=user_story,
+                )
             st.session_state[KEY_CHAT_HISTORY].append(HumanMessage(content=user_query))
 
             with st.chat_message("Human"):
-                st.markdown(user_query)
+                st.text(user_query)
 
             with st.chat_message("AI"):
                 response = st.write_stream(get_response(
@@ -167,3 +192,5 @@ with left_column:
                     story=user_story,
                 ))
             st.session_state[KEY_CHAT_HISTORY].append(AIMessage(content=response))
+
+log.info(f"###################### st.rerun {file_name} end ######################")
